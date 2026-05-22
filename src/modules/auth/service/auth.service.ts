@@ -604,6 +604,42 @@ export class AuthService {
     await createAuditEntry(userId, '2FA_DISABLED', 'user', userId);
   }
 
+  async listOAuthAccounts(userId: string) {
+    return prisma.oAuthAccount.findMany({
+      where: { userId },
+      select: {
+        id: true,
+        provider: true,
+        providerId: true,
+        createdAt: true,
+        updatedAt: true,
+      },
+    });
+  }
+
+  async unlinkOAuthAccount(userId: string, provider: string): Promise<void> {
+    const account = await prisma.oAuthAccount.findFirst({
+      where: { userId, provider },
+    });
+    if (!account) {
+      throw new NotFoundError('OAuth account');
+    }
+
+    const user = await prisma.user.findUnique({ where: { id: userId } });
+    if (!user?.passwordHash) {
+      const otherAccounts = await prisma.oAuthAccount.count({
+        where: { userId, provider: { not: provider } },
+      });
+      if (otherAccounts === 0) {
+        throw new BadRequestError('Cannot unlink last OAuth account without a password set');
+      }
+    }
+
+    await prisma.oAuthAccount.delete({ where: { id: account.id } });
+    await createAuditEntry(userId, 'OAUTH_UNLINKED', 'oauth', account.id, { provider });
+    log.info('OAuth account unlinked', { userId, provider });
+  }
+
   private generateTokenPair(
     userId: string,
     email: string,

@@ -2,15 +2,18 @@ import { Router } from 'express';
 import { storageController } from '../controller/storage.controller';
 import { authenticate } from '../../../core/middleware/auth';
 import { auditLog } from '../../../core/middleware/audit';
-
 const router = Router();
-
-router.get('/', authenticate as never, (req, res, next) => storageController.findAll(req, res, next));
-router.get('/search', authenticate as never, (req, res, next) => storageController.search(req, res, next));
-router.get('/:id', authenticate as never, (req, res, next) => storageController.findById(req, res, next));
-router.post('/', authenticate as never, auditLog('CREATE', 'storage') as never, (req, res, next) => storageController.create(req, res, next));
-router.put('/:id', authenticate as never, auditLog('UPDATE', 'storage') as never, (req, res, next) => storageController.update(req, res, next));
-router.patch('/:id', authenticate as never, auditLog('UPDATE', 'storage') as never, (req, res, next) => storageController.update(req, res, next));
-router.delete('/:id', authenticate as never, auditLog('DELETE', 'storage') as never, (req, res, next) => storageController.delete(req, res, next));
-
+router.get('/files', authenticate as never, (req, res, next) => storageController.getFiles(req, res, next));
+router.get('/files/shared', authenticate as never, (req, res, next) => storageController.getSharedWithMe(req, res, next));
+router.get('/usage', authenticate as never, (req, res, next) => storageController.getUsage(req, res, next));
+router.post('/files', authenticate as never, auditLog('UPLOAD', 'storage') as never, (req, res, next) => storageController.uploadFile(req, res, next));
+router.get('/files/:id', authenticate as never, (req, res, next) => storageController.getFileById(req, res, next));
+router.delete('/files/:id', authenticate as never, auditLog('DELETE_FILE', 'storage') as never, (req, res, next) => storageController.deleteFile(req, res, next));
+router.put('/files/:id/rename', authenticate as never, (req, res, next) => storageController.rename(req, res, next));
+router.put('/files/:id/move', authenticate as never, (req, res, next) => storageController.moveFile(req, res, next));
+router.post('/files/:id/share', authenticate as never, auditLog('SHARE', 'storage') as never, (req, res, next) => storageController.shareFile(req, res, next));
+router.post('/files/:id/toggle-public', authenticate as never, (req, res, next) => storageController.togglePublic(req, res, next));
+router.get('/folders', authenticate as never, (req, res, next) => storageController.getFolders(req, res, next));
+router.post('/folders', authenticate as never, (req, res, next) => storageController.createFolder(req, res, next));
+router.delete('/folders/:id', authenticate as never, auditLog('DELETE_FOLDER', 'storage') as never, (req, res, next) => storageController.deleteFolder(req, res, next));
 export { router as storageRouter };

@@ -3,72 +3,23 @@ import { logsService } from '../service/logs.service';
 import { parsePagination } from '../../../core/utils';
 
 export class LogsController {
-  async findAll(req: Request, res: Response, next: NextFunction): Promise<void> {
-    try {
-      const params = parsePagination(req.query as Record<string, unknown>);
-      const filters: Record<string, unknown> = {};
-      for (const [key, value] of Object.entries(req.query)) {
-        if (!['page', 'limit', 'sortBy', 'sortOrder'].includes(key) && value) {
-          filters[key] = value;
-        }
-      }
-
-      const result = await logsService.findAll(params, filters);
-      res.status(200).json({ success: true, ...result });
-    } catch (error) {
-      next(error);
-    }
+  async getLogs(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try { const p = parsePagination(req.query as Record<string, unknown>); const f = { level: req.query.level ? String(req.query.level) : undefined, source: req.query.source ? String(req.query.source) : undefined, search: req.query.search ? String(req.query.search) : undefined, startDate: req.query.startDate ? new Date(String(req.query.startDate)) : undefined, endDate: req.query.endDate ? new Date(String(req.query.endDate)) : undefined }; res.json({ success: true, ...await logsService.getLogs(p, f) }); } catch (e) { next(e); }
   }
-
-  async findById(req: Request, res: Response, next: NextFunction): Promise<void> {
-    try {
-      const record = await logsService.findById(String(req.params.id));
-      res.status(200).json({ success: true, data: record });
-    } catch (error) {
-      next(error);
-    }
-  }
-
   async create(req: Request, res: Response, next: NextFunction): Promise<void> {
-    try {
-      const userId = (req as unknown as { user?: { id: string } }).user?.id;
-      const record = await logsService.create(req.body, userId);
-      res.status(201).json({ success: true, data: record, message: 'LogEntry created successfully' });
-    } catch (error) {
-      next(error);
-    }
+    try { res.status(201).json({ success: true, data: await logsService.create(req.body) }); } catch (e) { next(e); }
   }
-
-  async update(req: Request, res: Response, next: NextFunction): Promise<void> {
-    try {
-      const userId = (req as unknown as { user?: { id: string } }).user?.id;
-      const record = await logsService.update(String(req.params.id), req.body, userId);
-      res.status(200).json({ success: true, data: record, message: 'LogEntry updated successfully' });
-    } catch (error) {
-      next(error);
-    }
+  async getLevels(_req: Request, res: Response, next: NextFunction): Promise<void> {
+    try { res.json({ success: true, data: await logsService.getLevels() }); } catch (e) { next(e); }
   }
-
-  async delete(req: Request, res: Response, next: NextFunction): Promise<void> {
-    try {
-      const userId = (req as unknown as { user?: { id: string } }).user?.id;
-      await logsService.delete(String(req.params.id), userId);
-      res.status(200).json({ success: true, message: 'LogEntry deleted successfully' });
-    } catch (error) {
-      next(error);
-    }
+  async getSources(_req: Request, res: Response, next: NextFunction): Promise<void> {
+    try { res.json({ success: true, data: await logsService.getSources() }); } catch (e) { next(e); }
   }
-
-  async search(req: Request, res: Response, next: NextFunction): Promise<void> {
-    try {
-      const params = parsePagination(req.query as Record<string, unknown>);
-      const query = String(Array.isArray(req.query.q) ? req.query.q[0] : req.query.q || '');
-      const result = await logsService.search(query, params);
-      res.status(200).json({ success: true, ...result });
-    } catch (error) {
-      next(error);
-    }
+  async purge(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try { const uid = (req as unknown as { user: { id: string } }).user.id; res.json({ success: true, data: await logsService.purge(new Date(String(req.body.olderThan)), uid) }); } catch (e) { next(e); }
+  }
+  async getErrorRate(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try { res.json({ success: true, data: await logsService.getErrorRate(Number(req.query.hours || 24)) }); } catch (e) { next(e); }
   }
 }
-
 export const logsController = new LogsController();

@@ -70,9 +70,15 @@ model User {
   licenses          License[]
   whitelistEntries  WhitelistEntry[]
   analyticsEvents   AnalyticsEvent[]
-  brainInteractions BrainInteraction[]
-  files             FileUpload[]
-  accountingEntries AccountingEntry[]
+  brainInteractions  BrainInteraction[]
+  files              FileUpload[]
+  accountingEntries  AccountingEntry[]
+  brainConversations BrainConversation[] @relation("UserBrainConversations")
+  storageFiles       StorageFile[]       @relation("UserStorageFiles")
+  storageFolders     StorageFolder[]     @relation("UserStorageFolders")
+  storageSharedWith  StorageShare[]      @relation("StorageSharedWith")
+  userStreams         Stream[]            @relation("UserStreams")
+  streamingAccounts  StreamingAccount[]  @relation("UserStreamingAccounts")
 
   @@index([email])
   @@index([username])
@@ -2060,4 +2066,153 @@ model EventLog {
   @@index([status])
   @@index([createdAt])
   @@map("event_logs")
+}
+
+// ============================================================
+// BRAIN AI (Self-Learning System)
+// ============================================================
+
+model BrainConversation {
+  id        String   @id @default(uuid())
+  userId    String
+  title     String?
+  messages  Json
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user User @relation("UserBrainConversations", fields: [userId], references: [id])
+
+  @@index([userId])
+  @@map("brain_conversations")
+}
+
+model BrainKnowledge {
+  id         String    @id @default(uuid())
+  pattern    String    @db.Text
+  response   String    @db.Text
+  category   String
+  confidence Float     @default(0.8)
+  usageCount Int       @default(0)
+  lastUsed   DateTime?
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+
+  @@index([category])
+  @@map("brain_knowledge")
+}
+
+// ============================================================
+// EMAIL TEMPLATES
+// ============================================================
+
+model EmailTemplate {
+  id        String   @id @default(uuid())
+  name      String   @unique
+  subject   String
+  body      String   @db.Text
+  html      String?  @db.LongText
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("email_templates")
+}
+
+// ============================================================
+// STORAGE (Cloud Storage)
+// ============================================================
+
+model StorageFile {
+  id          String    @id @default(uuid())
+  name        String
+  mimeType    String
+  size        Int
+  storagePath String
+  ownerId     String
+  folderId    String?
+  isPublic    Boolean   @default(false)
+  isDeleted   Boolean   @default(false)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  owner  User           @relation("UserStorageFiles", fields: [ownerId], references: [id])
+  folder StorageFolder? @relation(fields: [folderId], references: [id])
+  shares StorageShare[]
+
+  @@index([ownerId])
+  @@index([folderId])
+  @@map("storage_files")
+}
+
+model StorageFolder {
+  id        String   @id @default(uuid())
+  name      String
+  ownerId   String
+  parentId  String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  owner    User           @relation("UserStorageFolders", fields: [ownerId], references: [id])
+  parent   StorageFolder? @relation("FolderTree", fields: [parentId], references: [id])
+  children StorageFolder[] @relation("FolderTree")
+  files    StorageFile[]
+
+  @@index([ownerId])
+  @@index([parentId])
+  @@map("storage_folders")
+}
+
+model StorageShare {
+  id           String   @id @default(uuid())
+  fileId       String
+  sharedWithId String
+  permission   String   @default("READ")
+  createdAt    DateTime @default(now())
+
+  file       StorageFile @relation(fields: [fileId], references: [id])
+  sharedWith User        @relation("StorageSharedWith", fields: [sharedWithId], references: [id])
+
+  @@unique([fileId, sharedWithId])
+  @@map("storage_shares")
+}
+
+// ============================================================
+// STREAMING
+// ============================================================
+
+model Stream {
+  id          String    @id @default(uuid())
+  title       String
+  description String?   @db.Text
+  platforms   String
+  streamKey   String    @unique
+  obsConfig   Json?
+  userId      String
+  status      String    @default("OFFLINE")
+  startedAt   DateTime?
+  endedAt     DateTime?
+  duration    Int       @default(0)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  user User @relation("UserStreams", fields: [userId], references: [id])
+
+  @@index([userId])
+  @@index([status])
+  @@map("streams")
+}
+
+model StreamingAccount {
+  id           String   @id @default(uuid())
+  userId       String
+  platform     String
+  accountId    String
+  accessToken  String   @db.Text
+  refreshToken String?  @db.Text
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  user User @relation("UserStreamingAccounts", fields: [userId], references: [id])
+
+  @@unique([userId, platform])
+  @@map("streaming_accounts")
 }

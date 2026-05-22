@@ -4,71 +4,31 @@ import { parsePagination } from '../../../core/utils';
 
 export class TournamentsController {
   async findAll(req: Request, res: Response, next: NextFunction): Promise<void> {
-    try {
-      const params = parsePagination(req.query as Record<string, unknown>);
-      const filters: Record<string, unknown> = {};
-      for (const [key, value] of Object.entries(req.query)) {
-        if (!['page', 'limit', 'sortBy', 'sortOrder'].includes(key) && value) {
-          filters[key] = value;
-        }
-      }
-
-      const result = await tournamentsService.findAll(params, filters);
-      res.status(200).json({ success: true, ...result });
-    } catch (error) {
-      next(error);
-    }
+    try { const p = parsePagination(req.query as Record<string, unknown>); const f = { status: req.query.status ? String(req.query.status) : undefined, gameId: req.query.gameId ? String(req.query.gameId) : undefined }; res.json({ success: true, ...await tournamentsService.findAll(p, f) }); } catch (e) { next(e); }
   }
-
   async findById(req: Request, res: Response, next: NextFunction): Promise<void> {
-    try {
-      const record = await tournamentsService.findById(String(req.params.id));
-      res.status(200).json({ success: true, data: record });
-    } catch (error) {
-      next(error);
-    }
+    try { res.json({ success: true, data: await tournamentsService.findById(String(req.params.id)) }); } catch (e) { next(e); }
   }
-
   async create(req: Request, res: Response, next: NextFunction): Promise<void> {
-    try {
-      const userId = (req as unknown as { user?: { id: string } }).user?.id;
-      const record = await tournamentsService.create(req.body, userId);
-      res.status(201).json({ success: true, data: record, message: 'Tournament created successfully' });
-    } catch (error) {
-      next(error);
-    }
+    try { const uid = (req as unknown as { user: { id: string } }).user.id; res.status(201).json({ success: true, data: await tournamentsService.create(req.body, uid) }); } catch (e) { next(e); }
   }
-
-  async update(req: Request, res: Response, next: NextFunction): Promise<void> {
-    try {
-      const userId = (req as unknown as { user?: { id: string } }).user?.id;
-      const record = await tournamentsService.update(String(req.params.id), req.body, userId);
-      res.status(200).json({ success: true, data: record, message: 'Tournament updated successfully' });
-    } catch (error) {
-      next(error);
-    }
+  async register(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try { const uid = (req as unknown as { user: { id: string } }).user.id; res.json({ success: true, data: await tournamentsService.register(String(req.params.id), uid) }); } catch (e) { next(e); }
   }
-
-  async delete(req: Request, res: Response, next: NextFunction): Promise<void> {
-    try {
-      const userId = (req as unknown as { user?: { id: string } }).user?.id;
-      await tournamentsService.delete(String(req.params.id), userId);
-      res.status(200).json({ success: true, message: 'Tournament deleted successfully' });
-    } catch (error) {
-      next(error);
-    }
+  async unregister(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try { const uid = (req as unknown as { user: { id: string } }).user.id; await tournamentsService.unregister(String(req.params.id), uid); res.json({ success: true, message: 'Unregistered' }); } catch (e) { next(e); }
   }
-
-  async search(req: Request, res: Response, next: NextFunction): Promise<void> {
-    try {
-      const params = parsePagination(req.query as Record<string, unknown>);
-      const query = String(Array.isArray(req.query.q) ? req.query.q[0] : req.query.q || '');
-      const result = await tournamentsService.search(query, params);
-      res.status(200).json({ success: true, ...result });
-    } catch (error) {
-      next(error);
-    }
+  async start(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try { const uid = (req as unknown as { user: { id: string } }).user.id; await tournamentsService.startTournament(String(req.params.id), uid); res.json({ success: true, message: 'Tournament started' }); } catch (e) { next(e); }
+  }
+  async reportResult(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try { const uid = (req as unknown as { user: { id: string } }).user.id; res.json({ success: true, data: await tournamentsService.reportMatchResult(String(req.params.matchId), String(req.body.winnerId), String(req.body.score), uid) }); } catch (e) { next(e); }
+  }
+  async end(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try { const uid = (req as unknown as { user: { id: string } }).user.id; await tournamentsService.endTournament(String(req.params.id), uid); res.json({ success: true, message: 'Tournament ended' }); } catch (e) { next(e); }
+  }
+  async getBracket(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try { res.json({ success: true, data: await tournamentsService.getBracket(String(req.params.id)) }); } catch (e) { next(e); }
   }
 }
-
 export const tournamentsController = new TournamentsController();

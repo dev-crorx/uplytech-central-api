@@ -3,72 +3,44 @@ import { storageService } from '../service/storage.service';
 import { parsePagination } from '../../../core/utils';
 
 export class StorageController {
-  async findAll(req: Request, res: Response, next: NextFunction): Promise<void> {
-    try {
-      const params = parsePagination(req.query as Record<string, unknown>);
-      const filters: Record<string, unknown> = {};
-      for (const [key, value] of Object.entries(req.query)) {
-        if (!['page', 'limit', 'sortBy', 'sortOrder'].includes(key) && value) {
-          filters[key] = value;
-        }
-      }
-
-      const result = await storageService.findAll(params, filters);
-      res.status(200).json({ success: true, ...result });
-    } catch (error) {
-      next(error);
-    }
+  async getFiles(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try { const uid = (req as unknown as { user: { id: string } }).user.id; const p = parsePagination(req.query as Record<string, unknown>); res.json({ success: true, ...await storageService.getFiles(uid, p, req.query.folderId ? String(req.query.folderId) : undefined) }); } catch (e) { next(e); }
   }
-
-  async findById(req: Request, res: Response, next: NextFunction): Promise<void> {
-    try {
-      const record = await storageService.findById(String(req.params.id));
-      res.status(200).json({ success: true, data: record });
-    } catch (error) {
-      next(error);
-    }
+  async getFileById(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try { const uid = (req as unknown as { user: { id: string } }).user.id; res.json({ success: true, data: await storageService.getFileById(String(req.params.id), uid) }); } catch (e) { next(e); }
   }
-
-  async create(req: Request, res: Response, next: NextFunction): Promise<void> {
-    try {
-      const userId = (req as unknown as { user?: { id: string } }).user?.id;
-      const record = await storageService.create(req.body, userId);
-      res.status(201).json({ success: true, data: record, message: 'FileUpload created successfully' });
-    } catch (error) {
-      next(error);
-    }
+  async uploadFile(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try { const uid = (req as unknown as { user: { id: string } }).user.id; res.status(201).json({ success: true, data: await storageService.uploadFile(req.body, uid) }); } catch (e) { next(e); }
   }
-
-  async update(req: Request, res: Response, next: NextFunction): Promise<void> {
-    try {
-      const userId = (req as unknown as { user?: { id: string } }).user?.id;
-      const record = await storageService.update(String(req.params.id), req.body, userId);
-      res.status(200).json({ success: true, data: record, message: 'FileUpload updated successfully' });
-    } catch (error) {
-      next(error);
-    }
+  async createFolder(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try { const uid = (req as unknown as { user: { id: string } }).user.id; res.status(201).json({ success: true, data: await storageService.createFolder(req.body, uid) }); } catch (e) { next(e); }
   }
-
-  async delete(req: Request, res: Response, next: NextFunction): Promise<void> {
-    try {
-      const userId = (req as unknown as { user?: { id: string } }).user?.id;
-      await storageService.delete(String(req.params.id), userId);
-      res.status(200).json({ success: true, message: 'FileUpload deleted successfully' });
-    } catch (error) {
-      next(error);
-    }
+  async getFolders(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try { const uid = (req as unknown as { user: { id: string } }).user.id; res.json({ success: true, data: await storageService.getFolders(uid, req.query.parentId ? String(req.query.parentId) : undefined) }); } catch (e) { next(e); }
   }
-
-  async search(req: Request, res: Response, next: NextFunction): Promise<void> {
-    try {
-      const params = parsePagination(req.query as Record<string, unknown>);
-      const query = String(Array.isArray(req.query.q) ? req.query.q[0] : req.query.q || '');
-      const result = await storageService.search(query, params);
-      res.status(200).json({ success: true, ...result });
-    } catch (error) {
-      next(error);
-    }
+  async deleteFile(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try { const uid = (req as unknown as { user: { id: string } }).user.id; await storageService.deleteFile(String(req.params.id), uid); res.json({ success: true }); } catch (e) { next(e); }
+  }
+  async deleteFolder(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try { const uid = (req as unknown as { user: { id: string } }).user.id; await storageService.deleteFolder(String(req.params.id), uid); res.json({ success: true }); } catch (e) { next(e); }
+  }
+  async rename(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try { const uid = (req as unknown as { user: { id: string } }).user.id; res.json({ success: true, data: await storageService.rename(String(req.params.id), String(req.body.name), uid) }); } catch (e) { next(e); }
+  }
+  async moveFile(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try { const uid = (req as unknown as { user: { id: string } }).user.id; res.json({ success: true, data: await storageService.moveFile(String(req.params.id), req.body.folderId || null, uid) }); } catch (e) { next(e); }
+  }
+  async shareFile(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try { const uid = (req as unknown as { user: { id: string } }).user.id; await storageService.shareFile(String(req.params.id), String(req.body.userId), String(req.body.permission || 'READ'), uid); res.json({ success: true }); } catch (e) { next(e); }
+  }
+  async getSharedWithMe(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try { const uid = (req as unknown as { user: { id: string } }).user.id; const p = parsePagination(req.query as Record<string, unknown>); res.json({ success: true, ...await storageService.getSharedWithMe(uid, p) }); } catch (e) { next(e); }
+  }
+  async getUsage(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try { const uid = (req as unknown as { user: { id: string } }).user.id; res.json({ success: true, data: await storageService.getUsage(uid) }); } catch (e) { next(e); }
+  }
+  async togglePublic(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try { const uid = (req as unknown as { user: { id: string } }).user.id; res.json({ success: true, data: await storageService.togglePublic(String(req.params.id), uid) }); } catch (e) { next(e); }
   }
 }
-
 export const storageController = new StorageController();

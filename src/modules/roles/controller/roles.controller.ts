@@ -6,68 +6,79 @@ export class RolesController {
   async findAll(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const params = parsePagination(req.query as Record<string, unknown>);
-      const filters: Record<string, unknown> = {};
-      for (const [key, value] of Object.entries(req.query)) {
-        if (!['page', 'limit', 'sortBy', 'sortOrder'].includes(key) && value) {
-          filters[key] = value;
-        }
-      }
-
-      const result = await rolesService.findAll(params, filters);
-      res.status(200).json({ success: true, ...result });
-    } catch (error) {
-      next(error);
-    }
+      const result = await rolesService.findAll(params);
+      res.json({ success: true, ...result });
+    } catch (error) { next(error); }
   }
 
   async findById(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      const record = await rolesService.findById(String(req.params.id));
-      res.status(200).json({ success: true, data: record });
-    } catch (error) {
-      next(error);
-    }
+      const role = await rolesService.findById(String(req.params.id));
+      res.json({ success: true, data: role });
+    } catch (error) { next(error); }
   }
 
   async create(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      const userId = (req as unknown as { user?: { id: string } }).user?.id;
-      const record = await rolesService.create(req.body, userId);
-      res.status(201).json({ success: true, data: record, message: 'Role created successfully' });
-    } catch (error) {
-      next(error);
-    }
+      const userId = (req as unknown as { user: { id: string } }).user.id;
+      const role = await rolesService.create(req.body, userId);
+      res.status(201).json({ success: true, data: role, message: 'Role created' });
+    } catch (error) { next(error); }
   }
 
   async update(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      const userId = (req as unknown as { user?: { id: string } }).user?.id;
-      const record = await rolesService.update(String(req.params.id), req.body, userId);
-      res.status(200).json({ success: true, data: record, message: 'Role updated successfully' });
-    } catch (error) {
-      next(error);
-    }
+      const userId = (req as unknown as { user: { id: string } }).user.id;
+      const role = await rolesService.update(String(req.params.id), req.body, userId);
+      res.json({ success: true, data: role, message: 'Role updated' });
+    } catch (error) { next(error); }
   }
 
   async delete(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      const userId = (req as unknown as { user?: { id: string } }).user?.id;
+      const userId = (req as unknown as { user: { id: string } }).user.id;
       await rolesService.delete(String(req.params.id), userId);
-      res.status(200).json({ success: true, message: 'Role deleted successfully' });
-    } catch (error) {
-      next(error);
-    }
+      res.json({ success: true, message: 'Role deleted' });
+    } catch (error) { next(error); }
   }
 
-  async search(req: Request, res: Response, next: NextFunction): Promise<void> {
+  async assignToUser(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      const params = parsePagination(req.query as Record<string, unknown>);
-      const query = String(Array.isArray(req.query.q) ? req.query.q[0] : req.query.q || '');
-      const result = await rolesService.search(query, params);
-      res.status(200).json({ success: true, ...result });
-    } catch (error) {
-      next(error);
-    }
+      const adminId = (req as unknown as { user: { id: string } }).user.id;
+      await rolesService.assignToUser(String(req.params.id), String(req.body.userId), adminId);
+      res.json({ success: true, message: 'Role assigned to user' });
+    } catch (error) { next(error); }
+  }
+
+  async removeFromUser(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const adminId = (req as unknown as { user: { id: string } }).user.id;
+      await rolesService.removeFromUser(String(req.params.id), String(req.params.userId), adminId);
+      res.json({ success: true, message: 'Role removed from user' });
+    } catch (error) { next(error); }
+  }
+
+  async addPermission(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const adminId = (req as unknown as { user: { id: string } }).user.id;
+      await rolesService.addPermission(String(req.params.id), String(req.body.permissionId), adminId);
+      res.json({ success: true, message: 'Permission added to role' });
+    } catch (error) { next(error); }
+  }
+
+  async removePermission(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const adminId = (req as unknown as { user: { id: string } }).user.id;
+      await rolesService.removePermission(String(req.params.id), String(req.params.permissionId), adminId);
+      res.json({ success: true, message: 'Permission removed from role' });
+    } catch (error) { next(error); }
+  }
+
+  async getUserRoles(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const roles = await rolesService.getUserRoles(String(req.params.userId));
+      res.json({ success: true, data: roles });
+    } catch (error) { next(error); }
   }
 }
 

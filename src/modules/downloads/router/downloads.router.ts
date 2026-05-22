@@ -2,15 +2,10 @@ import { Router } from 'express';
 import { downloadsController } from '../controller/downloads.controller';
 import { authenticate } from '../../../core/middleware/auth';
 import { auditLog } from '../../../core/middleware/audit';
-
 const router = Router();
-
 router.get('/', authenticate as never, (req, res, next) => downloadsController.findAll(req, res, next));
-router.get('/search', authenticate as never, (req, res, next) => downloadsController.search(req, res, next));
-router.get('/:id', authenticate as never, (req, res, next) => downloadsController.findById(req, res, next));
 router.post('/', authenticate as never, auditLog('CREATE', 'downloads') as never, (req, res, next) => downloadsController.create(req, res, next));
+router.get('/:id', authenticate as never, (req, res, next) => downloadsController.findById(req, res, next));
 router.put('/:id', authenticate as never, auditLog('UPDATE', 'downloads') as never, (req, res, next) => downloadsController.update(req, res, next));
-router.patch('/:id', authenticate as never, auditLog('UPDATE', 'downloads') as never, (req, res, next) => downloadsController.update(req, res, next));
 router.delete('/:id', authenticate as never, auditLog('DELETE', 'downloads') as never, (req, res, next) => downloadsController.delete(req, res, next));
-
 export { router as downloadsRouter };

@@ -3,72 +3,23 @@ import { analyticsService } from '../service/analytics.service';
 import { parsePagination } from '../../../core/utils';
 
 export class AnalyticsController {
-  async findAll(req: Request, res: Response, next: NextFunction): Promise<void> {
-    try {
-      const params = parsePagination(req.query as Record<string, unknown>);
-      const filters: Record<string, unknown> = {};
-      for (const [key, value] of Object.entries(req.query)) {
-        if (!['page', 'limit', 'sortBy', 'sortOrder'].includes(key) && value) {
-          filters[key] = value;
-        }
-      }
-
-      const result = await analyticsService.findAll(params, filters);
-      res.status(200).json({ success: true, ...result });
-    } catch (error) {
-      next(error);
-    }
+  async trackEvent(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try { res.status(201).json({ success: true, data: await analyticsService.trackEvent({ ...req.body, ip: req.ip, userAgent: req.headers['user-agent'] }) }); } catch (e) { next(e); }
   }
-
-  async findById(req: Request, res: Response, next: NextFunction): Promise<void> {
-    try {
-      const record = await analyticsService.findById(String(req.params.id));
-      res.status(200).json({ success: true, data: record });
-    } catch (error) {
-      next(error);
-    }
+  async getEvents(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try { const p = parsePagination(req.query as Record<string, unknown>); const f = { event: req.query.event ? String(req.query.event) : undefined, userId: req.query.userId ? String(req.query.userId) : undefined, source: req.query.source ? String(req.query.source) : undefined, startDate: req.query.startDate ? new Date(String(req.query.startDate)) : undefined, endDate: req.query.endDate ? new Date(String(req.query.endDate)) : undefined }; res.json({ success: true, ...await analyticsService.getEvents(p, f) }); } catch (e) { next(e); }
   }
-
-  async create(req: Request, res: Response, next: NextFunction): Promise<void> {
-    try {
-      const userId = (req as unknown as { user?: { id: string } }).user?.id;
-      const record = await analyticsService.create(req.body, userId);
-      res.status(201).json({ success: true, data: record, message: 'AnalyticsEvent created successfully' });
-    } catch (error) {
-      next(error);
-    }
+  async getEventCounts(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try { res.json({ success: true, data: await analyticsService.getEventCounts(String(req.query.event), String(req.query.groupBy || 'day'), req.query.startDate ? new Date(String(req.query.startDate)) : undefined, req.query.endDate ? new Date(String(req.query.endDate)) : undefined) }); } catch (e) { next(e); }
   }
-
-  async update(req: Request, res: Response, next: NextFunction): Promise<void> {
-    try {
-      const userId = (req as unknown as { user?: { id: string } }).user?.id;
-      const record = await analyticsService.update(String(req.params.id), req.body, userId);
-      res.status(200).json({ success: true, data: record, message: 'AnalyticsEvent updated successfully' });
-    } catch (error) {
-      next(error);
-    }
+  async getUniqueUsers(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try { res.json({ success: true, data: await analyticsService.getUniqueUsers(req.query.startDate ? new Date(String(req.query.startDate)) : undefined, req.query.endDate ? new Date(String(req.query.endDate)) : undefined) }); } catch (e) { next(e); }
   }
-
-  async delete(req: Request, res: Response, next: NextFunction): Promise<void> {
-    try {
-      const userId = (req as unknown as { user?: { id: string } }).user?.id;
-      await analyticsService.delete(String(req.params.id), userId);
-      res.status(200).json({ success: true, message: 'AnalyticsEvent deleted successfully' });
-    } catch (error) {
-      next(error);
-    }
+  async getTopEvents(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try { res.json({ success: true, data: await analyticsService.getTopEvents(Number(req.query.limit || 20)) }); } catch (e) { next(e); }
   }
-
-  async search(req: Request, res: Response, next: NextFunction): Promise<void> {
-    try {
-      const params = parsePagination(req.query as Record<string, unknown>);
-      const query = String(Array.isArray(req.query.q) ? req.query.q[0] : req.query.q || '');
-      const result = await analyticsService.search(query, params);
-      res.status(200).json({ success: true, ...result });
-    } catch (error) {
-      next(error);
-    }
+  async getDashboard(_req: Request, res: Response, next: NextFunction): Promise<void> {
+    try { res.json({ success: true, data: await analyticsService.getDashboard() }); } catch (e) { next(e); }
   }
 }
-
 export const analyticsController = new AnalyticsController();

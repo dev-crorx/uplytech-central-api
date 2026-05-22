@@ -3,72 +3,29 @@ import { economyService } from '../service/economy.service';
 import { parsePagination } from '../../../core/utils';
 
 export class EconomyController {
-  async findAll(req: Request, res: Response, next: NextFunction): Promise<void> {
-    try {
-      const params = parsePagination(req.query as Record<string, unknown>);
-      const filters: Record<string, unknown> = {};
-      for (const [key, value] of Object.entries(req.query)) {
-        if (!['page', 'limit', 'sortBy', 'sortOrder'].includes(key) && value) {
-          filters[key] = value;
-        }
-      }
-
-      const result = await economyService.findAll(params, filters);
-      res.status(200).json({ success: true, ...result });
-    } catch (error) {
-      next(error);
-    }
+  async getBalance(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try { const uid = (req as unknown as { user: { id: string } }).user.id; res.json({ success: true, data: await economyService.getBalance(uid) }); } catch (e) { next(e); }
   }
-
-  async findById(req: Request, res: Response, next: NextFunction): Promise<void> {
-    try {
-      const record = await economyService.findById(String(req.params.id));
-      res.status(200).json({ success: true, data: record });
-    } catch (error) {
-      next(error);
-    }
+  async deposit(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try { const uid = (req as unknown as { user: { id: string } }).user.id; res.json({ success: true, data: await economyService.deposit(String(req.body.userId), Number(req.body.amount), String(req.body.reason), uid) }); } catch (e) { next(e); }
   }
-
-  async create(req: Request, res: Response, next: NextFunction): Promise<void> {
-    try {
-      const userId = (req as unknown as { user?: { id: string } }).user?.id;
-      const record = await economyService.create(req.body, userId);
-      res.status(201).json({ success: true, data: record, message: 'EconomyAccount created successfully' });
-    } catch (error) {
-      next(error);
-    }
+  async withdraw(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try { const uid = (req as unknown as { user: { id: string } }).user.id; res.json({ success: true, data: await economyService.withdraw(uid, Number(req.body.amount), String(req.body.reason || '')) }); } catch (e) { next(e); }
   }
-
-  async update(req: Request, res: Response, next: NextFunction): Promise<void> {
-    try {
-      const userId = (req as unknown as { user?: { id: string } }).user?.id;
-      const record = await economyService.update(String(req.params.id), req.body, userId);
-      res.status(200).json({ success: true, data: record, message: 'EconomyAccount updated successfully' });
-    } catch (error) {
-      next(error);
-    }
+  async transfer(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try { const uid = (req as unknown as { user: { id: string } }).user.id; res.json({ success: true, data: await economyService.transfer(uid, String(req.body.toUserId), Number(req.body.amount), String(req.body.description || '')) }); } catch (e) { next(e); }
   }
-
-  async delete(req: Request, res: Response, next: NextFunction): Promise<void> {
-    try {
-      const userId = (req as unknown as { user?: { id: string } }).user?.id;
-      await economyService.delete(String(req.params.id), userId);
-      res.status(200).json({ success: true, message: 'EconomyAccount deleted successfully' });
-    } catch (error) {
-      next(error);
-    }
+  async purchaseCurrency(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try { const uid = (req as unknown as { user: { id: string } }).user.id; res.json({ success: true, data: await economyService.purchaseCurrency(uid, Number(req.body.amount), String(req.body.paymentId)) }); } catch (e) { next(e); }
   }
-
-  async search(req: Request, res: Response, next: NextFunction): Promise<void> {
-    try {
-      const params = parsePagination(req.query as Record<string, unknown>);
-      const query = String(Array.isArray(req.query.q) ? req.query.q[0] : req.query.q || '');
-      const result = await economyService.search(query, params);
-      res.status(200).json({ success: true, ...result });
-    } catch (error) {
-      next(error);
-    }
+  async getTransactions(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try { const uid = (req as unknown as { user: { id: string } }).user.id; const p = parsePagination(req.query as Record<string, unknown>); res.json({ success: true, ...await economyService.getTransactionHistory(uid, p) }); } catch (e) { next(e); }
+  }
+  async getCurrencies(_req: Request, res: Response, next: NextFunction): Promise<void> {
+    try { res.json({ success: true, data: await economyService.getCurrencies() }); } catch (e) { next(e); }
+  }
+  async getLeaderboard(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try { res.json({ success: true, data: await economyService.getLeaderboard(Number(req.query.limit || 50)) }); } catch (e) { next(e); }
   }
 }
-
 export const economyController = new EconomyController();

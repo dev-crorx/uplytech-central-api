@@ -2,15 +2,13 @@ import { Router } from 'express';
 import { economyController } from '../controller/economy.controller';
 import { authenticate } from '../../../core/middleware/auth';
 import { auditLog } from '../../../core/middleware/audit';
-
 const router = Router();
-
-router.get('/', authenticate as never, (req, res, next) => economyController.findAll(req, res, next));
-router.get('/search', authenticate as never, (req, res, next) => economyController.search(req, res, next));
-router.get('/:id', authenticate as never, (req, res, next) => economyController.findById(req, res, next));
-router.post('/', authenticate as never, auditLog('CREATE', 'economy') as never, (req, res, next) => economyController.create(req, res, next));
-router.put('/:id', authenticate as never, auditLog('UPDATE', 'economy') as never, (req, res, next) => economyController.update(req, res, next));
-router.patch('/:id', authenticate as never, auditLog('UPDATE', 'economy') as never, (req, res, next) => economyController.update(req, res, next));
-router.delete('/:id', authenticate as never, auditLog('DELETE', 'economy') as never, (req, res, next) => economyController.delete(req, res, next));
-
+router.get('/balance', authenticate as never, (req, res, next) => economyController.getBalance(req, res, next));
+router.get('/transactions', authenticate as never, (req, res, next) => economyController.getTransactions(req, res, next));
+router.get('/currencies', authenticate as never, (req, res, next) => economyController.getCurrencies(req, res, next));
+router.get('/leaderboard', authenticate as never, (req, res, next) => economyController.getLeaderboard(req, res, next));
+router.post('/deposit', authenticate as never, auditLog('DEPOSIT', 'economy') as never, (req, res, next) => economyController.deposit(req, res, next));
+router.post('/withdraw', authenticate as never, auditLog('WITHDRAW', 'economy') as never, (req, res, next) => economyController.withdraw(req, res, next));
+router.post('/transfer', authenticate as never, auditLog('TRANSFER', 'economy') as never, (req, res, next) => economyController.transfer(req, res, next));
+router.post('/purchase', authenticate as never, auditLog('PURCHASE_CURRENCY', 'economy') as never, (req, res, next) => economyController.purchaseCurrency(req, res, next));
 export { router as economyRouter };

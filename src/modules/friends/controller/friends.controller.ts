@@ -3,71 +3,79 @@ import { friendsService } from '../service/friends.service';
 import { parsePagination } from '../../../core/utils';
 
 export class FriendsController {
-  async findAll(req: Request, res: Response, next: NextFunction): Promise<void> {
+  async getFriends(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
+      const userId = (req as unknown as { user: { id: string } }).user.id;
       const params = parsePagination(req.query as Record<string, unknown>);
-      const filters: Record<string, unknown> = {};
-      for (const [key, value] of Object.entries(req.query)) {
-        if (!['page', 'limit', 'sortBy', 'sortOrder'].includes(key) && value) {
-          filters[key] = value;
-        }
-      }
-
-      const result = await friendsService.findAll(params, filters);
-      res.status(200).json({ success: true, ...result });
-    } catch (error) {
-      next(error);
-    }
+      const result = await friendsService.getFriends(userId, params);
+      res.json({ success: true, ...result });
+    } catch (error) { next(error); }
   }
 
-  async findById(req: Request, res: Response, next: NextFunction): Promise<void> {
+  async sendRequest(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      const record = await friendsService.findById(String(req.params.id));
-      res.status(200).json({ success: true, data: record });
-    } catch (error) {
-      next(error);
-    }
+      const userId = (req as unknown as { user: { id: string } }).user.id;
+      const request = await friendsService.sendRequest(userId, String(req.body.receiverId));
+      res.status(201).json({ success: true, data: request, message: 'Friend request sent' });
+    } catch (error) { next(error); }
   }
 
-  async create(req: Request, res: Response, next: NextFunction): Promise<void> {
+  async acceptRequest(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      const userId = (req as unknown as { user?: { id: string } }).user?.id;
-      const record = await friendsService.create(req.body, userId);
-      res.status(201).json({ success: true, data: record, message: 'Friend created successfully' });
-    } catch (error) {
-      next(error);
-    }
+      const userId = (req as unknown as { user: { id: string } }).user.id;
+      await friendsService.acceptRequest(String(req.params.id), userId);
+      res.json({ success: true, message: 'Friend request accepted' });
+    } catch (error) { next(error); }
   }
 
-  async update(req: Request, res: Response, next: NextFunction): Promise<void> {
+  async rejectRequest(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      const userId = (req as unknown as { user?: { id: string } }).user?.id;
-      const record = await friendsService.update(String(req.params.id), req.body, userId);
-      res.status(200).json({ success: true, data: record, message: 'Friend updated successfully' });
-    } catch (error) {
-      next(error);
-    }
+      const userId = (req as unknown as { user: { id: string } }).user.id;
+      await friendsService.rejectRequest(String(req.params.id), userId);
+      res.json({ success: true, message: 'Friend request rejected' });
+    } catch (error) { next(error); }
   }
 
-  async delete(req: Request, res: Response, next: NextFunction): Promise<void> {
+  async removeFriend(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      const userId = (req as unknown as { user?: { id: string } }).user?.id;
-      await friendsService.delete(String(req.params.id), userId);
-      res.status(200).json({ success: true, message: 'Friend deleted successfully' });
-    } catch (error) {
-      next(error);
-    }
+      const userId = (req as unknown as { user: { id: string } }).user.id;
+      await friendsService.removeFriend(userId, String(req.params.id));
+      res.json({ success: true, message: 'Friend removed' });
+    } catch (error) { next(error); }
   }
 
-  async search(req: Request, res: Response, next: NextFunction): Promise<void> {
+  async blockUser(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
+      const userId = (req as unknown as { user: { id: string } }).user.id;
+      await friendsService.blockUser(userId, String(req.params.id));
+      res.json({ success: true, message: 'User blocked' });
+    } catch (error) { next(error); }
+  }
+
+  async getPendingRequests(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const userId = (req as unknown as { user: { id: string } }).user.id;
       const params = parsePagination(req.query as Record<string, unknown>);
-      const query = String(Array.isArray(req.query.q) ? req.query.q[0] : req.query.q || '');
-      const result = await friendsService.search(query, params);
-      res.status(200).json({ success: true, ...result });
-    } catch (error) {
-      next(error);
-    }
+      const result = await friendsService.getPendingRequests(userId, params);
+      res.json({ success: true, ...result });
+    } catch (error) { next(error); }
+  }
+
+  async getSentRequests(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const userId = (req as unknown as { user: { id: string } }).user.id;
+      const params = parsePagination(req.query as Record<string, unknown>);
+      const result = await friendsService.getSentRequests(userId, params);
+      res.json({ success: true, ...result });
+    } catch (error) { next(error); }
+  }
+
+  async getMutualFriends(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const userId = (req as unknown as { user: { id: string } }).user.id;
+      const mutual = await friendsService.getMutualFriends(userId, String(req.params.id));
+      res.json({ success: true, data: mutual });
+    } catch (error) { next(error); }
   }
 }
 

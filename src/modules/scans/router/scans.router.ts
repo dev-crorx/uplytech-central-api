@@ -2,15 +2,10 @@ import { Router } from 'express';
 import { scansController } from '../controller/scans.controller';
 import { authenticate } from '../../../core/middleware/auth';
 import { auditLog } from '../../../core/middleware/audit';
-
 const router = Router();
-
 router.get('/', authenticate as never, (req, res, next) => scansController.findAll(req, res, next));
-router.get('/search', authenticate as never, (req, res, next) => scansController.search(req, res, next));
-router.get('/:id', authenticate as never, (req, res, next) => scansController.findById(req, res, next));
 router.post('/', authenticate as never, auditLog('CREATE', 'scans') as never, (req, res, next) => scansController.create(req, res, next));
+router.get('/:id', authenticate as never, (req, res, next) => scansController.findById(req, res, next));
 router.put('/:id', authenticate as never, auditLog('UPDATE', 'scans') as never, (req, res, next) => scansController.update(req, res, next));
-router.patch('/:id', authenticate as never, auditLog('UPDATE', 'scans') as never, (req, res, next) => scansController.update(req, res, next));
 router.delete('/:id', authenticate as never, auditLog('DELETE', 'scans') as never, (req, res, next) => scansController.delete(req, res, next));
-
 export { router as scansRouter };

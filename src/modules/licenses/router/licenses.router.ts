@@ -2,15 +2,14 @@ import { Router } from 'express';
 import { licensesController } from '../controller/licenses.controller';
 import { authenticate } from '../../../core/middleware/auth';
 import { auditLog } from '../../../core/middleware/audit';
-
 const router = Router();
-
 router.get('/', authenticate as never, (req, res, next) => licensesController.findAll(req, res, next));
-router.get('/search', authenticate as never, (req, res, next) => licensesController.search(req, res, next));
+router.get('/my', authenticate as never, (req, res, next) => licensesController.getMyLicenses(req, res, next));
+router.post('/generate', authenticate as never, auditLog('GENERATE_LICENSE', 'license') as never, (req, res, next) => licensesController.generate(req, res, next));
+router.post('/validate', authenticate as never, (req, res, next) => licensesController.validate(req, res, next));
+router.post('/activate', authenticate as never, auditLog('ACTIVATE_LICENSE', 'license') as never, (req, res, next) => licensesController.activate(req, res, next));
 router.get('/:id', authenticate as never, (req, res, next) => licensesController.findById(req, res, next));
-router.post('/', authenticate as never, auditLog('CREATE', 'licenses') as never, (req, res, next) => licensesController.create(req, res, next));
-router.put('/:id', authenticate as never, auditLog('UPDATE', 'licenses') as never, (req, res, next) => licensesController.update(req, res, next));
-router.patch('/:id', authenticate as never, auditLog('UPDATE', 'licenses') as never, (req, res, next) => licensesController.update(req, res, next));
-router.delete('/:id', authenticate as never, auditLog('DELETE', 'licenses') as never, (req, res, next) => licensesController.delete(req, res, next));
-
+router.post('/:id/deactivate', authenticate as never, auditLog('DEACTIVATE', 'license') as never, (req, res, next) => licensesController.deactivate(req, res, next));
+router.post('/:id/revoke', authenticate as never, auditLog('REVOKE', 'license') as never, (req, res, next) => licensesController.revoke(req, res, next));
+router.post('/:id/renew', authenticate as never, auditLog('RENEW', 'license') as never, (req, res, next) => licensesController.renew(req, res, next));
 export { router as licensesRouter };

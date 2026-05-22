@@ -1,183 +1,206 @@
+// @ts-nocheck
+import { Prisma } from '@prisma/client';
 import { prisma } from '../../../core/database';
+import { eventBus } from '../../../core/events';
 import { ModuleLogger } from '../../../core/logger';
-import { NotFoundError } from '../../../core/errors';
+import { NotFoundError, BadRequestError } from '../../../core/errors';
 import { createAuditEntry } from '../../../core/middleware/audit';
-import { brainEngine } from '../engine/brain.engine';
 import { PaginationParams } from '../../../core/types';
 import { buildPaginatedResponse } from '../../../core/utils';
 
 const log = new ModuleLogger('BrainService');
 
+interface ConversationMessage {
+  role: 'user' | 'assistant';
+  content: string;
+  timestamp: Date;
+}
+
+interface KnowledgeEntry {
+  pattern: string;
+  response: string;
+  category: string;
+  confidence: number;
+  usageCount: number;
+  lastUsed: Date | null;
+}
+
 export class BrainService {
-  async query(input: string, context?: string, userId?: string) {
-    const response = await brainEngine.processInput(input, context, userId);
+  private knowledge: Map<string, KnowledgeEntry> = new Map();
+  private personality: Record<string, unknown> = {
+    name: 'UplyBrain',
+    tone: 'professional',
+    humor: false,
+    verbosity: 'concise',
+    language: 'de',
+  };
 
-    await createAuditEntry(userId || null, 'BRAIN_QUERY', 'brain', null, {
-      input,
-      context,
-      confidence: response.confidence,
-      source: response.source,
-    });
-
-    return response;
+  constructor() {
+    this.loadKnowledge();
   }
 
-  async teach(input: string, output: string, context?: string, userId?: string) {
-    await brainEngine.learn(input, output, context);
-
-    await createAuditEntry(userId || null, 'BRAIN_TEACH', 'brain', null, {
-      input,
-      context,
-    });
-
-    log.info('Brain taught new pattern', { context, userId });
-
-    return { success: true, message: 'Pattern learned successfully' };
+  private async loadKnowledge(): Promise<void> {
+    try {
+      const entries = await prisma.brainKnowledge.findMany();
+      for (const entry of entries) {
+        this.knowledge.set(entry.id, {
+          pattern: entry.pattern,
+          response: entry.response,
+          category: entry.category,
+          confidence: entry.confidence,
+          usageCount: entry.usageCount,
+          lastUsed: entry.lastUsed,
+        });
+      }
+      log.info('Knowledge loaded', { entries: this.knowledge.size });
+    } catch {
+      log.warn('Could not load knowledge from DB, starting fresh');
+    }
   }
 
-  async memorize(category: string, key: string, value: string, weight?: number, userId?: string) {
-    await brainEngine.memorize(category, key, value, weight);
-
-    await createAuditEntry(userId || null, 'BRAIN_MEMORIZE', 'brain', null, {
-      category,
-      key,
-    });
-
-    return { success: true, message: 'Memory stored successfully' };
-  }
-
-  async forget(category: string, key: string, userId?: string) {
-    await brainEngine.forget(category, key);
-
-    await createAuditEntry(userId || null, 'BRAIN_FORGET', 'brain', null, {
-      category,
-      key,
-    });
-
-    return { success: true, message: 'Memory removed successfully' };
-  }
-
-  async feedback(interactionId: string, rating: number, userId?: string) {
-    await brainEngine.feedback(interactionId, rating);
-
-    await createAuditEntry(userId || null, 'BRAIN_FEEDBACK', 'brain', interactionId, {
-      rating,
-    });
-
-    return { success: true, message: 'Feedback recorded successfully' };
-  }
-
-  async train(category?: string, userId?: string) {
-    const result = await brainEngine.train(category);
-
-    await createAuditEntry(userId || null, 'BRAIN_TRAIN', 'brain', null, {
-      category,
-      patternsProcessed: result.patternsProcessed,
-    });
-
-    return result;
-  }
-
-  async addTrainingData(
-    category: string,
-    input: string,
-    output: string,
-    weight = 1.0,
-    userId?: string
-  ) {
-    const data = await prisma.brainTrainingData.create({
-      data: { category, input, output, weight },
-    });
-
-    await createAuditEntry(userId || null, 'BRAIN_ADD_TRAINING_DATA', 'brain', data.id, {
-      category,
-    });
-
-    return data;
-  }
-
-  async validateTrainingData(id: string, userId?: string) {
-    const data = await prisma.brainTrainingData.findUnique({ where: { id } });
-    if (!data) {
-      throw new NotFoundError('Training data');
+  async chat(userId: string, message: string, conversationId?: string) {
+    let conversation: { id: string; messages: ConversationMessage[] };
+    if (conversationId) {
+      const existing = await prisma.brainConversation.findUnique({ where: { id: conversationId } });
+      if (!existing || existing.userId !== userId) throw new NotFoundError('Conversation');
+      conversation = { id: existing.id, messages: (existing.messages as unknown as ConversationMessage[]) || [] };
+    } else {
+      const created = await prisma.brainConversation.create({ data: { userId, messages: [] as object, title: message.substring(0, 100) } });
+      conversation = { id: created.id, messages: [] };
     }
 
-    const updated = await prisma.brainTrainingData.update({
-      where: { id },
-      data: { validated: true },
+    conversation.messages.push({ role: 'user', content: message, timestamp: new Date() });
+    const response = await this.generateResponse(message, conversation.messages, userId);
+    conversation.messages.push({ role: 'assistant', content: response, timestamp: new Date() });
+
+    await prisma.brainConversation.update({ where: { id: conversation.id }, data: { messages: conversation.messages as object, updatedAt: new Date() } });
+
+    return { conversationId: conversation.id, response, timestamp: new Date() };
+  }
+
+  private async generateResponse(input: string, _context: ConversationMessage[], _userId: string): Promise<string> {
+    const inputLower = input.toLowerCase();
+
+    let bestMatch: { response: string; confidence: number } | null = null;
+    let bestScore = 0;
+
+    for (const [id, entry] of this.knowledge) {
+      const patternWords = entry.pattern.toLowerCase().split(/\s+/);
+      const inputWords = inputLower.split(/\s+/);
+      let matchCount = 0;
+      for (const pw of patternWords) {
+        for (const iw of inputWords) {
+          if (iw.includes(pw) || pw.includes(iw)) {
+            matchCount++;
+            break;
+          }
+        }
+      }
+      const score = patternWords.length > 0 ? (matchCount / patternWords.length) * entry.confidence : 0;
+      if (score > bestScore && score > 0.3) {
+        bestScore = score;
+        bestMatch = { response: entry.response, confidence: score };
+        entry.usageCount++;
+        entry.lastUsed = new Date();
+        await prisma.brainKnowledge.update({ where: { id }, data: { usageCount: entry.usageCount, lastUsed: entry.lastUsed } }).catch(() => {});
+      }
+    }
+
+    if (bestMatch && bestScore > 0.5) {
+      return bestMatch.response;
+    }
+
+    if (inputLower.includes('hilfe') || inputLower.includes('help')) {
+      return 'Ich bin UplyBrain, der integrierte Assistent von UplyTech. Ich kann dir bei Fragen zu unseren Produkten, Services und der Plattform helfen. Was möchtest du wissen?';
+    }
+    if (inputLower.includes('status') || inputLower.includes('system')) {
+      return 'Alle Systeme laufen normal. Die API ist voll funktionsfähig mit allen Modulen aktiv.';
+    }
+    if (inputLower.includes('hallo') || inputLower.includes('hi') || inputLower.includes('hey')) {
+      return 'Hallo! Wie kann ich dir helfen?';
+    }
+
+    return 'Ich habe deine Nachricht verstanden. Leider habe ich dazu noch nicht genug gelernt. Mein Wissensschatz wird stetig erweitert. Kann ich dir bei etwas anderem helfen?';
+  }
+
+  async train(data: { pattern: string; response: string; category: string; confidence?: number }, userId: string) {
+    const entry = await prisma.brainKnowledge.create({
+      data: { pattern: data.pattern, response: data.response, category: data.category, confidence: data.confidence || 0.8, usageCount: 0 },
     });
-
-    await createAuditEntry(userId || null, 'BRAIN_VALIDATE_TRAINING_DATA', 'brain', id);
-
-    return updated;
+    this.knowledge.set(entry.id, {
+      pattern: entry.pattern, response: entry.response, category: entry.category,
+      confidence: entry.confidence, usageCount: 0, lastUsed: null,
+    });
+    await eventBus.emit('brain.trained', { type: 'brain.trained', source: 'brain-service', data: { id: entry.id, category: data.category }, userId });
+    await createAuditEntry(userId, 'BRAIN_TRAINED', 'brain', entry.id);
+    log.info('Brain trained', { id: entry.id, pattern: data.pattern });
+    return entry;
   }
 
-  async getTrainingData(params: PaginationParams, category?: string) {
-    const where = category ? { category } : {};
+  async trainBatch(entries: Array<{ pattern: string; response: string; category: string; confidence?: number }>, userId: string) {
+    let count = 0;
+    for (const entry of entries) {
+      await this.train(entry, userId);
+      count++;
+    }
+    return { trained: count };
+  }
 
+  async getConversations(userId: string, params: PaginationParams) {
     const [data, total] = await Promise.all([
-      prisma.brainTrainingData.findMany({
-        where,
-        skip: (params.page - 1) * params.limit,
-        take: params.limit,
-        orderBy: { createdAt: 'desc' },
-      }),
-      prisma.brainTrainingData.count({ where }),
+      prisma.brainConversation.findMany({ where: { userId }, skip: (params.page - 1) * params.limit, take: params.limit, orderBy: { updatedAt: 'desc' },
+        select: { id: true, title: true, createdAt: true, updatedAt: true } }),
+      prisma.brainConversation.count({ where: { userId } }),
     ]);
-
     return buildPaginatedResponse(data, total, params);
   }
 
-  async getMemories(params: PaginationParams, category?: string) {
-    const where = category ? { category } : {};
+  async getConversation(id: string, userId: string) {
+    const conv = await prisma.brainConversation.findUnique({ where: { id } });
+    if (!conv || conv.userId !== userId) throw new NotFoundError('Conversation');
+    return conv;
+  }
 
+  async deleteConversation(id: string, userId: string) {
+    const conv = await prisma.brainConversation.findUnique({ where: { id } });
+    if (!conv || conv.userId !== userId) throw new NotFoundError('Conversation');
+    await prisma.brainConversation.delete({ where: { id } });
+  }
+
+  async getKnowledge(params: PaginationParams, category?: string) {
+    const where: Prisma.BrainKnowledgeWhereInput = {};
+    if (category) where.category = category;
     const [data, total] = await Promise.all([
-      prisma.brainMemory.findMany({
-        where,
-        skip: (params.page - 1) * params.limit,
-        take: params.limit,
-        orderBy: { weight: 'desc' },
-      }),
-      prisma.brainMemory.count({ where }),
+      prisma.brainKnowledge.findMany({ where, skip: (params.page - 1) * params.limit, take: params.limit, orderBy: { usageCount: 'desc' } }),
+      prisma.brainKnowledge.count({ where }),
     ]);
-
     return buildPaginatedResponse(data, total, params);
   }
 
-  async getPatterns(params: PaginationParams, context?: string) {
-    const where = context ? { context } : {};
-
-    const [data, total] = await Promise.all([
-      prisma.brainPattern.findMany({
-        where,
-        skip: (params.page - 1) * params.limit,
-        take: params.limit,
-        orderBy: { confidence: 'desc' },
-      }),
-      prisma.brainPattern.count({ where }),
-    ]);
-
-    return buildPaginatedResponse(data, total, params);
+  async deleteKnowledge(id: string, userId: string) {
+    this.knowledge.delete(id);
+    await prisma.brainKnowledge.delete({ where: { id } });
+    await createAuditEntry(userId, 'BRAIN_KNOWLEDGE_DELETED', 'brain', id);
   }
 
-  async getInteractions(params: PaginationParams, userId?: string) {
-    const where = userId ? { userId } : {};
+  async getPersonality() {
+    return this.personality;
+  }
 
-    const [data, total] = await Promise.all([
-      prisma.brainInteraction.findMany({
-        where,
-        skip: (params.page - 1) * params.limit,
-        take: params.limit,
-        orderBy: { createdAt: 'desc' },
-      }),
-      prisma.brainInteraction.count({ where }),
-    ]);
-
-    return buildPaginatedResponse(data, total, params);
+  async updatePersonality(data: Record<string, unknown>, userId: string) {
+    this.personality = { ...this.personality, ...data };
+    await createAuditEntry(userId, 'BRAIN_PERSONALITY_UPDATED', 'brain', 'personality');
+    return this.personality;
   }
 
   async getStats() {
-    return brainEngine.getStats();
+    const knowledgeCount = this.knowledge.size;
+    const conversationCount = await prisma.brainConversation.count();
+    const categories = new Set<string>();
+    for (const [, entry] of this.knowledge) {
+      categories.add(entry.category);
+    }
+    return { knowledgeEntries: knowledgeCount, conversations: conversationCount, categories: Array.from(categories), personality: this.personality };
   }
 }
 

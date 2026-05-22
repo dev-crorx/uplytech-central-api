@@ -3,72 +3,44 @@ import { streamingService } from '../service/streaming.service';
 import { parsePagination } from '../../../core/utils';
 
 export class StreamingController {
-  async findAll(req: Request, res: Response, next: NextFunction): Promise<void> {
-    try {
-      const params = parsePagination(req.query as Record<string, unknown>);
-      const filters: Record<string, unknown> = {};
-      for (const [key, value] of Object.entries(req.query)) {
-        if (!['page', 'limit', 'sortBy', 'sortOrder'].includes(key) && value) {
-          filters[key] = value;
-        }
-      }
-
-      const result = await streamingService.findAll(params, filters);
-      res.status(200).json({ success: true, ...result });
-    } catch (error) {
-      next(error);
-    }
+  async getStreams(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try { const p = parsePagination(req.query as Record<string, unknown>); const f = { status: req.query.status ? String(req.query.status) : undefined, platform: req.query.platform ? String(req.query.platform) : undefined }; res.json({ success: true, ...await streamingService.getStreams(p, f) }); } catch (e) { next(e); }
   }
-
   async findById(req: Request, res: Response, next: NextFunction): Promise<void> {
-    try {
-      const record = await streamingService.findById(String(req.params.id));
-      res.status(200).json({ success: true, data: record });
-    } catch (error) {
-      next(error);
-    }
+    try { res.json({ success: true, data: await streamingService.findById(String(req.params.id)) }); } catch (e) { next(e); }
   }
-
-  async create(req: Request, res: Response, next: NextFunction): Promise<void> {
-    try {
-      const userId = (req as unknown as { user?: { id: string } }).user?.id;
-      const record = await streamingService.create(req.body, userId);
-      res.status(201).json({ success: true, data: record, message: 'StreamConfig created successfully' });
-    } catch (error) {
-      next(error);
-    }
+  async createStream(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try { const uid = (req as unknown as { user: { id: string } }).user.id; res.status(201).json({ success: true, data: await streamingService.createStream(req.body, uid) }); } catch (e) { next(e); }
   }
-
-  async update(req: Request, res: Response, next: NextFunction): Promise<void> {
-    try {
-      const userId = (req as unknown as { user?: { id: string } }).user?.id;
-      const record = await streamingService.update(String(req.params.id), req.body, userId);
-      res.status(200).json({ success: true, data: record, message: 'StreamConfig updated successfully' });
-    } catch (error) {
-      next(error);
-    }
+  async goLive(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try { const uid = (req as unknown as { user: { id: string } }).user.id; await streamingService.goLive(String(req.params.id), uid); res.json({ success: true, message: 'Stream is live' }); } catch (e) { next(e); }
   }
-
-  async delete(req: Request, res: Response, next: NextFunction): Promise<void> {
-    try {
-      const userId = (req as unknown as { user?: { id: string } }).user?.id;
-      await streamingService.delete(String(req.params.id), userId);
-      res.status(200).json({ success: true, message: 'StreamConfig deleted successfully' });
-    } catch (error) {
-      next(error);
-    }
+  async goOffline(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try { const uid = (req as unknown as { user: { id: string } }).user.id; await streamingService.goOffline(String(req.params.id), uid); res.json({ success: true, message: 'Stream is offline' }); } catch (e) { next(e); }
   }
-
-  async search(req: Request, res: Response, next: NextFunction): Promise<void> {
-    try {
-      const params = parsePagination(req.query as Record<string, unknown>);
-      const query = String(Array.isArray(req.query.q) ? req.query.q[0] : req.query.q || '');
-      const result = await streamingService.search(query, params);
-      res.status(200).json({ success: true, ...result });
-    } catch (error) {
-      next(error);
-    }
+  async updateStreamInfo(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try { const uid = (req as unknown as { user: { id: string } }).user.id; res.json({ success: true, data: await streamingService.updateStreamInfo(String(req.params.id), req.body, uid) }); } catch (e) { next(e); }
+  }
+  async addPlatform(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try { const uid = (req as unknown as { user: { id: string } }).user.id; await streamingService.addPlatform(String(req.params.id), String(req.body.platform), uid); res.json({ success: true }); } catch (e) { next(e); }
+  }
+  async removePlatform(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try { const uid = (req as unknown as { user: { id: string } }).user.id; await streamingService.removePlatform(String(req.params.id), String(req.params.platform), uid); res.json({ success: true }); } catch (e) { next(e); }
+  }
+  async updateOBSConfig(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try { const uid = (req as unknown as { user: { id: string } }).user.id; res.json({ success: true, data: await streamingService.updateOBSConfig(String(req.params.id), req.body, uid) }); } catch (e) { next(e); }
+  }
+  async getMyStreams(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try { const uid = (req as unknown as { user: { id: string } }).user.id; res.json({ success: true, data: await streamingService.getMyStreams(uid) }); } catch (e) { next(e); }
+  }
+  async getPlatformAccounts(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try { const uid = (req as unknown as { user: { id: string } }).user.id; res.json({ success: true, data: await streamingService.getPlatformAccounts(uid) }); } catch (e) { next(e); }
+  }
+  async connectPlatformAccount(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try { const uid = (req as unknown as { user: { id: string } }).user.id; res.json({ success: true, data: await streamingService.connectPlatformAccount(req.body, uid) }); } catch (e) { next(e); }
+  }
+  async disconnectPlatformAccount(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try { const uid = (req as unknown as { user: { id: string } }).user.id; await streamingService.disconnectPlatformAccount(String(req.params.platform), uid); res.json({ success: true }); } catch (e) { next(e); }
   }
 }
-
 export const streamingController = new StreamingController();

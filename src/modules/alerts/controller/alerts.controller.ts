@@ -4,71 +4,22 @@ import { parsePagination } from '../../../core/utils';
 
 export class AlertsController {
   async findAll(req: Request, res: Response, next: NextFunction): Promise<void> {
-    try {
-      const params = parsePagination(req.query as Record<string, unknown>);
-      const filters: Record<string, unknown> = {};
-      for (const [key, value] of Object.entries(req.query)) {
-        if (!['page', 'limit', 'sortBy', 'sortOrder'].includes(key) && value) {
-          filters[key] = value;
-        }
-      }
-
-      const result = await alertsService.findAll(params, filters);
-      res.status(200).json({ success: true, ...result });
-    } catch (error) {
-      next(error);
-    }
+    try { const p = parsePagination(req.query as Record<string, unknown>); const f = { severity: req.query.severity ? String(req.query.severity) : undefined, status: req.query.status ? String(req.query.status) : undefined, type: req.query.type ? String(req.query.type) : undefined }; res.json({ success: true, ...await alertsService.findAll(p, f) }); } catch (e) { next(e); }
   }
-
-  async findById(req: Request, res: Response, next: NextFunction): Promise<void> {
-    try {
-      const record = await alertsService.findById(String(req.params.id));
-      res.status(200).json({ success: true, data: record });
-    } catch (error) {
-      next(error);
-    }
-  }
-
   async create(req: Request, res: Response, next: NextFunction): Promise<void> {
-    try {
-      const userId = (req as unknown as { user?: { id: string } }).user?.id;
-      const record = await alertsService.create(req.body, userId);
-      res.status(201).json({ success: true, data: record, message: 'Alert created successfully' });
-    } catch (error) {
-      next(error);
-    }
+    try { res.status(201).json({ success: true, data: await alertsService.create(req.body) }); } catch (e) { next(e); }
   }
-
-  async update(req: Request, res: Response, next: NextFunction): Promise<void> {
-    try {
-      const userId = (req as unknown as { user?: { id: string } }).user?.id;
-      const record = await alertsService.update(String(req.params.id), req.body, userId);
-      res.status(200).json({ success: true, data: record, message: 'Alert updated successfully' });
-    } catch (error) {
-      next(error);
-    }
+  async acknowledge(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try { const uid = (req as unknown as { user: { id: string } }).user.id; await alertsService.acknowledge(String(req.params.id), uid); res.json({ success: true }); } catch (e) { next(e); }
   }
-
-  async delete(req: Request, res: Response, next: NextFunction): Promise<void> {
-    try {
-      const userId = (req as unknown as { user?: { id: string } }).user?.id;
-      await alertsService.delete(String(req.params.id), userId);
-      res.status(200).json({ success: true, message: 'Alert deleted successfully' });
-    } catch (error) {
-      next(error);
-    }
+  async resolve(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try { const uid = (req as unknown as { user: { id: string } }).user.id; await alertsService.resolve(String(req.params.id), uid, String(req.body.resolution || '')); res.json({ success: true }); } catch (e) { next(e); }
   }
-
-  async search(req: Request, res: Response, next: NextFunction): Promise<void> {
-    try {
-      const params = parsePagination(req.query as Record<string, unknown>);
-      const query = String(Array.isArray(req.query.q) ? req.query.q[0] : req.query.q || '');
-      const result = await alertsService.search(query, params);
-      res.status(200).json({ success: true, ...result });
-    } catch (error) {
-      next(error);
-    }
+  async dismiss(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try { const uid = (req as unknown as { user: { id: string } }).user.id; await alertsService.dismiss(String(req.params.id), uid); res.json({ success: true }); } catch (e) { next(e); }
+  }
+  async getActiveCount(_req: Request, res: Response, next: NextFunction): Promise<void> {
+    try { res.json({ success: true, data: await alertsService.getActiveCount() }); } catch (e) { next(e); }
   }
 }
-
 export const alertsController = new AlertsController();

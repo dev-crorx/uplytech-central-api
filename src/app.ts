@@ -3,9 +3,11 @@ import cors from 'cors';
 import helmet from 'helmet';
 import compression from 'compression';
 import cookieParser from 'cookie-parser';
+import passport from 'passport';
 import { config } from './core/config';
 import { errorHandler, globalRateLimiter } from './core/middleware';
 import { logger } from './core/logger';
+import { initializeOAuthProviders } from './modules/auth/oauth/providers';
 
 // Module Routers
 import { authRouter } from './modules/auth/router/auth.router';
@@ -85,6 +87,10 @@ export function createApp(): express.Application {
 
   // Rate limiting
   app.use(globalRateLimiter);
+
+  // Passport / OAuth
+  app.use(passport.initialize());
+  initializeOAuthProviders();
 
   // Request logging
   app.use((req, _res, next) => {

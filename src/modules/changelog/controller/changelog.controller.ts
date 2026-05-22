@@ -4,71 +4,19 @@ import { parsePagination } from '../../../core/utils';
 
 export class ChangelogController {
   async findAll(req: Request, res: Response, next: NextFunction): Promise<void> {
-    try {
-      const params = parsePagination(req.query as Record<string, unknown>);
-      const filters: Record<string, unknown> = {};
-      for (const [key, value] of Object.entries(req.query)) {
-        if (!['page', 'limit', 'sortBy', 'sortOrder'].includes(key) && value) {
-          filters[key] = value;
-        }
-      }
-
-      const result = await changelogService.findAll(params, filters);
-      res.status(200).json({ success: true, ...result });
-    } catch (error) {
-      next(error);
-    }
+    try { const p = parsePagination(req.query as Record<string, unknown>); res.json({ success: true, ...await changelogService.findAll(p) }); } catch (e) { next(e); }
   }
-
   async findById(req: Request, res: Response, next: NextFunction): Promise<void> {
-    try {
-      const record = await changelogService.findById(String(req.params.id));
-      res.status(200).json({ success: true, data: record });
-    } catch (error) {
-      next(error);
-    }
+    try { res.json({ success: true, data: await changelogService.findById(String(req.params.id)) }); } catch (e) { next(e); }
   }
-
   async create(req: Request, res: Response, next: NextFunction): Promise<void> {
-    try {
-      const userId = (req as unknown as { user?: { id: string } }).user?.id;
-      const record = await changelogService.create(req.body, userId);
-      res.status(201).json({ success: true, data: record, message: 'Changelog created successfully' });
-    } catch (error) {
-      next(error);
-    }
+    try { const uid = (req as unknown as { user: { id: string } }).user.id; res.status(201).json({ success: true, data: await changelogService.create(req.body, uid) }); } catch (e) { next(e); }
   }
-
   async update(req: Request, res: Response, next: NextFunction): Promise<void> {
-    try {
-      const userId = (req as unknown as { user?: { id: string } }).user?.id;
-      const record = await changelogService.update(String(req.params.id), req.body, userId);
-      res.status(200).json({ success: true, data: record, message: 'Changelog updated successfully' });
-    } catch (error) {
-      next(error);
-    }
+    try { const uid = (req as unknown as { user: { id: string } }).user.id; res.json({ success: true, data: await changelogService.update(String(req.params.id), req.body, uid) }); } catch (e) { next(e); }
   }
-
   async delete(req: Request, res: Response, next: NextFunction): Promise<void> {
-    try {
-      const userId = (req as unknown as { user?: { id: string } }).user?.id;
-      await changelogService.delete(String(req.params.id), userId);
-      res.status(200).json({ success: true, message: 'Changelog deleted successfully' });
-    } catch (error) {
-      next(error);
-    }
-  }
-
-  async search(req: Request, res: Response, next: NextFunction): Promise<void> {
-    try {
-      const params = parsePagination(req.query as Record<string, unknown>);
-      const query = String(Array.isArray(req.query.q) ? req.query.q[0] : req.query.q || '');
-      const result = await changelogService.search(query, params);
-      res.status(200).json({ success: true, ...result });
-    } catch (error) {
-      next(error);
-    }
+    try { const uid = (req as unknown as { user: { id: string } }).user.id; await changelogService.delete(String(req.params.id), uid); res.json({ success: true }); } catch (e) { next(e); }
   }
 }
-
 export const changelogController = new ChangelogController();

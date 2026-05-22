@@ -1,16 +1,11 @@
 import { Router } from 'express';
 import { analyticsController } from '../controller/analytics.controller';
 import { authenticate } from '../../../core/middleware/auth';
-import { auditLog } from '../../../core/middleware/audit';
-
 const router = Router();
-
-router.get('/', authenticate as never, (req, res, next) => analyticsController.findAll(req, res, next));
-router.get('/search', authenticate as never, (req, res, next) => analyticsController.search(req, res, next));
-router.get('/:id', authenticate as never, (req, res, next) => analyticsController.findById(req, res, next));
-router.post('/', authenticate as never, auditLog('CREATE', 'analytics') as never, (req, res, next) => analyticsController.create(req, res, next));
-router.put('/:id', authenticate as never, auditLog('UPDATE', 'analytics') as never, (req, res, next) => analyticsController.update(req, res, next));
-router.patch('/:id', authenticate as never, auditLog('UPDATE', 'analytics') as never, (req, res, next) => analyticsController.update(req, res, next));
-router.delete('/:id', authenticate as never, auditLog('DELETE', 'analytics') as never, (req, res, next) => analyticsController.delete(req, res, next));
-
+router.post('/track', (req, res, next) => analyticsController.trackEvent(req, res, next));
+router.get('/events', authenticate as never, (req, res, next) => analyticsController.getEvents(req, res, next));
+router.get('/counts', authenticate as never, (req, res, next) => analyticsController.getEventCounts(req, res, next));
+router.get('/unique-users', authenticate as never, (req, res, next) => analyticsController.getUniqueUsers(req, res, next));
+router.get('/top-events', authenticate as never, (req, res, next) => analyticsController.getTopEvents(req, res, next));
+router.get('/dashboard', authenticate as never, (req, res, next) => analyticsController.getDashboard(req, res, next));
 export { router as analyticsRouter };

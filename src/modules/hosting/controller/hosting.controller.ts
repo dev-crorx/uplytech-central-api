@@ -4,71 +4,37 @@ import { parsePagination } from '../../../core/utils';
 
 export class HostingController {
   async findAll(req: Request, res: Response, next: NextFunction): Promise<void> {
-    try {
-      const params = parsePagination(req.query as Record<string, unknown>);
-      const filters: Record<string, unknown> = {};
-      for (const [key, value] of Object.entries(req.query)) {
-        if (!['page', 'limit', 'sortBy', 'sortOrder'].includes(key) && value) {
-          filters[key] = value;
-        }
-      }
-
-      const result = await hostingService.findAll(params, filters);
-      res.status(200).json({ success: true, ...result });
-    } catch (error) {
-      next(error);
-    }
+    try { const p = parsePagination(req.query as Record<string, unknown>); const f = { status: req.query.status ? String(req.query.status) : undefined, type: req.query.type ? String(req.query.type) : undefined }; res.json({ success: true, ...await hostingService.findAll(p, f) }); } catch (e) { next(e); }
   }
-
   async findById(req: Request, res: Response, next: NextFunction): Promise<void> {
-    try {
-      const record = await hostingService.findById(String(req.params.id));
-      res.status(200).json({ success: true, data: record });
-    } catch (error) {
-      next(error);
-    }
+    try { res.json({ success: true, data: await hostingService.findById(String(req.params.id)) }); } catch (e) { next(e); }
   }
-
-  async create(req: Request, res: Response, next: NextFunction): Promise<void> {
-    try {
-      const userId = (req as unknown as { user?: { id: string } }).user?.id;
-      const record = await hostingService.create(req.body, userId);
-      res.status(201).json({ success: true, data: record, message: 'HostingInstance created successfully' });
-    } catch (error) {
-      next(error);
-    }
+  async provision(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try { const uid = (req as unknown as { user: { id: string } }).user.id; res.status(201).json({ success: true, data: await hostingService.provision(req.body, uid) }); } catch (e) { next(e); }
   }
-
-  async update(req: Request, res: Response, next: NextFunction): Promise<void> {
-    try {
-      const userId = (req as unknown as { user?: { id: string } }).user?.id;
-      const record = await hostingService.update(String(req.params.id), req.body, userId);
-      res.status(200).json({ success: true, data: record, message: 'HostingInstance updated successfully' });
-    } catch (error) {
-      next(error);
-    }
+  async start(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try { const uid = (req as unknown as { user: { id: string } }).user.id; await hostingService.start(String(req.params.id), uid); res.json({ success: true, message: 'Instance started' }); } catch (e) { next(e); }
   }
-
+  async stop(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try { const uid = (req as unknown as { user: { id: string } }).user.id; await hostingService.stop(String(req.params.id), uid); res.json({ success: true, message: 'Instance stopped' }); } catch (e) { next(e); }
+  }
+  async restart(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try { const uid = (req as unknown as { user: { id: string } }).user.id; await hostingService.restart(String(req.params.id), uid); res.json({ success: true, message: 'Instance restarted' }); } catch (e) { next(e); }
+  }
   async delete(req: Request, res: Response, next: NextFunction): Promise<void> {
-    try {
-      const userId = (req as unknown as { user?: { id: string } }).user?.id;
-      await hostingService.delete(String(req.params.id), userId);
-      res.status(200).json({ success: true, message: 'HostingInstance deleted successfully' });
-    } catch (error) {
-      next(error);
-    }
+    try { const uid = (req as unknown as { user: { id: string } }).user.id; await hostingService.delete(String(req.params.id), uid); res.json({ success: true }); } catch (e) { next(e); }
   }
-
-  async search(req: Request, res: Response, next: NextFunction): Promise<void> {
-    try {
-      const params = parsePagination(req.query as Record<string, unknown>);
-      const query = String(Array.isArray(req.query.q) ? req.query.q[0] : req.query.q || '');
-      const result = await hostingService.search(query, params);
-      res.status(200).json({ success: true, ...result });
-    } catch (error) {
-      next(error);
-    }
+  async getLogs(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try { res.json({ success: true, data: await hostingService.getLogs(String(req.params.id), Number(req.query.lines || 100)) }); } catch (e) { next(e); }
+  }
+  async getMetrics(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try { res.json({ success: true, data: await hostingService.getMetrics(String(req.params.id)) }); } catch (e) { next(e); }
+  }
+  async updateConfig(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try { const uid = (req as unknown as { user: { id: string } }).user.id; await hostingService.updateConfig(String(req.params.id), req.body, uid); res.json({ success: true }); } catch (e) { next(e); }
+  }
+  async getMyInstances(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try { const uid = (req as unknown as { user: { id: string } }).user.id; res.json({ success: true, data: await hostingService.getMyInstances(uid) }); } catch (e) { next(e); }
   }
 }
-
 export const hostingController = new HostingController();

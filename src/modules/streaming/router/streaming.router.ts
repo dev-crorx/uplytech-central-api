@@ -2,15 +2,18 @@ import { Router } from 'express';
 import { streamingController } from '../controller/streaming.controller';
 import { authenticate } from '../../../core/middleware/auth';
 import { auditLog } from '../../../core/middleware/audit';
-
 const router = Router();
-
-router.get('/', authenticate as never, (req, res, next) => streamingController.findAll(req, res, next));
-router.get('/search', authenticate as never, (req, res, next) => streamingController.search(req, res, next));
+router.get('/', authenticate as never, (req, res, next) => streamingController.getStreams(req, res, next));
+router.get('/my', authenticate as never, (req, res, next) => streamingController.getMyStreams(req, res, next));
+router.get('/accounts', authenticate as never, (req, res, next) => streamingController.getPlatformAccounts(req, res, next));
+router.post('/accounts', authenticate as never, auditLog('CONNECT_PLATFORM', 'streaming') as never, (req, res, next) => streamingController.connectPlatformAccount(req, res, next));
+router.delete('/accounts/:platform', authenticate as never, auditLog('DISCONNECT_PLATFORM', 'streaming') as never, (req, res, next) => streamingController.disconnectPlatformAccount(req, res, next));
+router.post('/', authenticate as never, auditLog('CREATE_STREAM', 'streaming') as never, (req, res, next) => streamingController.createStream(req, res, next));
 router.get('/:id', authenticate as never, (req, res, next) => streamingController.findById(req, res, next));
-router.post('/', authenticate as never, auditLog('CREATE', 'streaming') as never, (req, res, next) => streamingController.create(req, res, next));
-router.put('/:id', authenticate as never, auditLog('UPDATE', 'streaming') as never, (req, res, next) => streamingController.update(req, res, next));
-router.patch('/:id', authenticate as never, auditLog('UPDATE', 'streaming') as never, (req, res, next) => streamingController.update(req, res, next));
-router.delete('/:id', authenticate as never, auditLog('DELETE', 'streaming') as never, (req, res, next) => streamingController.delete(req, res, next));
-
+router.put('/:id', authenticate as never, (req, res, next) => streamingController.updateStreamInfo(req, res, next));
+router.post('/:id/live', authenticate as never, auditLog('GO_LIVE', 'streaming') as never, (req, res, next) => streamingController.goLive(req, res, next));
+router.post('/:id/offline', authenticate as never, auditLog('GO_OFFLINE', 'streaming') as never, (req, res, next) => streamingController.goOffline(req, res, next));
+router.post('/:id/platforms', authenticate as never, (req, res, next) => streamingController.addPlatform(req, res, next));
+router.delete('/:id/platforms/:platform', authenticate as never, (req, res, next) => streamingController.removePlatform(req, res, next));
+router.put('/:id/obs-config', authenticate as never, auditLog('UPDATE_OBS', 'streaming') as never, (req, res, next) => streamingController.updateOBSConfig(req, res, next));
 export { router as streamingRouter };

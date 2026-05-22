@@ -1,22 +1,17 @@
 import { Router } from 'express';
 import { brainController } from '../controller/brain.controller';
-import { authenticate, requireRole } from '../../../core/middleware/auth';
+import { authenticate } from '../../../core/middleware/auth';
 import { auditLog } from '../../../core/middleware/audit';
-
 const router = Router();
-
-router.post('/query', authenticate as never, auditLog('QUERY', 'brain') as never, (req, res, next) => brainController.query(req as never, res, next));
-router.post('/teach', authenticate as never, requireRole('ADMIN', 'SUPER_ADMIN') as never, auditLog('TEACH', 'brain') as never, (req, res, next) => brainController.teach(req as never, res, next));
-router.post('/memorize', authenticate as never, requireRole('ADMIN', 'SUPER_ADMIN') as never, auditLog('MEMORIZE', 'brain') as never, (req, res, next) => brainController.memorize(req as never, res, next));
-router.post('/forget', authenticate as never, requireRole('ADMIN', 'SUPER_ADMIN') as never, auditLog('FORGET', 'brain') as never, (req, res, next) => brainController.forget(req as never, res, next));
-router.post('/feedback', authenticate as never, auditLog('FEEDBACK', 'brain') as never, (req, res, next) => brainController.feedback(req as never, res, next));
-router.post('/train', authenticate as never, requireRole('ADMIN', 'SUPER_ADMIN') as never, auditLog('TRAIN', 'brain') as never, (req, res, next) => brainController.train(req as never, res, next));
-router.post('/training-data', authenticate as never, requireRole('ADMIN', 'SUPER_ADMIN') as never, auditLog('ADD_TRAINING_DATA', 'brain') as never, (req, res, next) => brainController.addTrainingData(req as never, res, next));
-router.patch('/training-data/:id/validate', authenticate as never, requireRole('ADMIN', 'SUPER_ADMIN') as never, auditLog('VALIDATE_TRAINING_DATA', 'brain') as never, (req, res, next) => brainController.validateTrainingData(req as never, res, next));
-router.get('/training-data', authenticate as never, (req, res, next) => brainController.getTrainingData(req as never, res, next));
-router.get('/memories', authenticate as never, (req, res, next) => brainController.getMemories(req as never, res, next));
-router.get('/patterns', authenticate as never, (req, res, next) => brainController.getPatterns(req as never, res, next));
-router.get('/interactions', authenticate as never, (req, res, next) => brainController.getInteractions(req as never, res, next));
-router.get('/stats', authenticate as never, (req, res, next) => brainController.getStats(req as never, res, next));
-
+router.post('/chat', authenticate as never, (req, res, next) => brainController.chat(req, res, next));
+router.get('/conversations', authenticate as never, (req, res, next) => brainController.getConversations(req, res, next));
+router.get('/conversations/:id', authenticate as never, (req, res, next) => brainController.getConversation(req, res, next));
+router.delete('/conversations/:id', authenticate as never, (req, res, next) => brainController.deleteConversation(req, res, next));
+router.get('/knowledge', authenticate as never, (req, res, next) => brainController.getKnowledge(req, res, next));
+router.post('/train', authenticate as never, auditLog('TRAIN', 'brain') as never, (req, res, next) => brainController.train(req, res, next));
+router.post('/train/batch', authenticate as never, auditLog('TRAIN_BATCH', 'brain') as never, (req, res, next) => brainController.trainBatch(req, res, next));
+router.delete('/knowledge/:id', authenticate as never, auditLog('DELETE_KNOWLEDGE', 'brain') as never, (req, res, next) => brainController.deleteKnowledge(req, res, next));
+router.get('/personality', authenticate as never, (req, res, next) => brainController.getPersonality(req, res, next));
+router.put('/personality', authenticate as never, auditLog('UPDATE_PERSONALITY', 'brain') as never, (req, res, next) => brainController.updatePersonality(req, res, next));
+router.get('/stats', authenticate as never, (req, res, next) => brainController.getStats(req, res, next));
 export { router as brainRouter };

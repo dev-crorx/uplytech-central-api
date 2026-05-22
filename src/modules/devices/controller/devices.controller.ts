@@ -4,71 +4,28 @@ import { parsePagination } from '../../../core/utils';
 
 export class DevicesController {
   async findAll(req: Request, res: Response, next: NextFunction): Promise<void> {
-    try {
-      const params = parsePagination(req.query as Record<string, unknown>);
-      const filters: Record<string, unknown> = {};
-      for (const [key, value] of Object.entries(req.query)) {
-        if (!['page', 'limit', 'sortBy', 'sortOrder'].includes(key) && value) {
-          filters[key] = value;
-        }
-      }
-
-      const result = await devicesService.findAll(params, filters);
-      res.status(200).json({ success: true, ...result });
-    } catch (error) {
-      next(error);
-    }
+    try { const p = parsePagination(req.query as Record<string, unknown>); const f = { type: req.query.type ? String(req.query.type) : undefined, status: req.query.status ? String(req.query.status) : undefined, userId: req.query.userId ? String(req.query.userId) : undefined }; res.json({ success: true, ...await devicesService.findAll(p, f) }); } catch (e) { next(e); }
   }
-
   async findById(req: Request, res: Response, next: NextFunction): Promise<void> {
-    try {
-      const record = await devicesService.findById(String(req.params.id));
-      res.status(200).json({ success: true, data: record });
-    } catch (error) {
-      next(error);
-    }
+    try { res.json({ success: true, data: await devicesService.findById(String(req.params.id)) }); } catch (e) { next(e); }
   }
-
-  async create(req: Request, res: Response, next: NextFunction): Promise<void> {
-    try {
-      const userId = (req as unknown as { user?: { id: string } }).user?.id;
-      const record = await devicesService.create(req.body, userId);
-      res.status(201).json({ success: true, data: record, message: 'Device created successfully' });
-    } catch (error) {
-      next(error);
-    }
+  async register(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try { const uid = (req as unknown as { user: { id: string } }).user.id; res.status(201).json({ success: true, data: await devicesService.register(req.body, uid) }); } catch (e) { next(e); }
   }
-
+  async heartbeat(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try { res.json({ success: true, data: await devicesService.heartbeat(String(req.params.id), req.body) }); } catch (e) { next(e); }
+  }
+  async deregister(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try { const uid = (req as unknown as { user: { id: string } }).user.id; await devicesService.deregister(String(req.params.id), uid); res.json({ success: true }); } catch (e) { next(e); }
+  }
   async update(req: Request, res: Response, next: NextFunction): Promise<void> {
-    try {
-      const userId = (req as unknown as { user?: { id: string } }).user?.id;
-      const record = await devicesService.update(String(req.params.id), req.body, userId);
-      res.status(200).json({ success: true, data: record, message: 'Device updated successfully' });
-    } catch (error) {
-      next(error);
-    }
+    try { const uid = (req as unknown as { user: { id: string } }).user.id; res.json({ success: true, data: await devicesService.update(String(req.params.id), req.body, uid) }); } catch (e) { next(e); }
   }
-
-  async delete(req: Request, res: Response, next: NextFunction): Promise<void> {
-    try {
-      const userId = (req as unknown as { user?: { id: string } }).user?.id;
-      await devicesService.delete(String(req.params.id), userId);
-      res.status(200).json({ success: true, message: 'Device deleted successfully' });
-    } catch (error) {
-      next(error);
-    }
+  async getMyDevices(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try { const uid = (req as unknown as { user: { id: string } }).user.id; res.json({ success: true, data: await devicesService.getMyDevices(uid) }); } catch (e) { next(e); }
   }
-
-  async search(req: Request, res: Response, next: NextFunction): Promise<void> {
-    try {
-      const params = parsePagination(req.query as Record<string, unknown>);
-      const query = String(Array.isArray(req.query.q) ? req.query.q[0] : req.query.q || '');
-      const result = await devicesService.search(query, params);
-      res.status(200).json({ success: true, ...result });
-    } catch (error) {
-      next(error);
-    }
+  async setStatus(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try { const uid = (req as unknown as { user: { id: string } }).user.id; await devicesService.setStatus(String(req.params.id), String(req.body.status), uid); res.json({ success: true }); } catch (e) { next(e); }
   }
 }
-
 export const devicesController = new DevicesController();

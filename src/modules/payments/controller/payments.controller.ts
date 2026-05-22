@@ -4,71 +4,31 @@ import { parsePagination } from '../../../core/utils';
 
 export class PaymentsController {
   async findAll(req: Request, res: Response, next: NextFunction): Promise<void> {
-    try {
-      const params = parsePagination(req.query as Record<string, unknown>);
-      const filters: Record<string, unknown> = {};
-      for (const [key, value] of Object.entries(req.query)) {
-        if (!['page', 'limit', 'sortBy', 'sortOrder'].includes(key) && value) {
-          filters[key] = value;
-        }
-      }
-
-      const result = await paymentsService.findAll(params, filters);
-      res.status(200).json({ success: true, ...result });
-    } catch (error) {
-      next(error);
-    }
+    try { const p = parsePagination(req.query as Record<string, unknown>); const f = { status: req.query.status ? String(req.query.status) : undefined, userId: req.query.userId ? String(req.query.userId) : undefined, method: req.query.method ? String(req.query.method) : undefined }; res.json({ success: true, ...await paymentsService.findAll(p, f) }); } catch (e) { next(e); }
   }
-
   async findById(req: Request, res: Response, next: NextFunction): Promise<void> {
-    try {
-      const record = await paymentsService.findById(String(req.params.id));
-      res.status(200).json({ success: true, data: record });
-    } catch (error) {
-      next(error);
-    }
+    try { res.json({ success: true, data: await paymentsService.findById(String(req.params.id)) }); } catch (e) { next(e); }
   }
-
-  async create(req: Request, res: Response, next: NextFunction): Promise<void> {
-    try {
-      const userId = (req as unknown as { user?: { id: string } }).user?.id;
-      const record = await paymentsService.create(req.body, userId);
-      res.status(201).json({ success: true, data: record, message: 'Payment created successfully' });
-    } catch (error) {
-      next(error);
-    }
+  async createPaymentIntent(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try { const uid = (req as unknown as { user: { id: string } }).user.id; res.status(201).json({ success: true, data: await paymentsService.createPaymentIntent({ ...req.body, userId: uid }) }); } catch (e) { next(e); }
   }
-
-  async update(req: Request, res: Response, next: NextFunction): Promise<void> {
-    try {
-      const userId = (req as unknown as { user?: { id: string } }).user?.id;
-      const record = await paymentsService.update(String(req.params.id), req.body, userId);
-      res.status(200).json({ success: true, data: record, message: 'Payment updated successfully' });
-    } catch (error) {
-      next(error);
-    }
+  async confirmPayment(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try { const uid = (req as unknown as { user: { id: string } }).user.id; res.json({ success: true, data: await paymentsService.confirmPayment(String(req.params.id), uid) }); } catch (e) { next(e); }
   }
-
-  async delete(req: Request, res: Response, next: NextFunction): Promise<void> {
-    try {
-      const userId = (req as unknown as { user?: { id: string } }).user?.id;
-      await paymentsService.delete(String(req.params.id), userId);
-      res.status(200).json({ success: true, message: 'Payment deleted successfully' });
-    } catch (error) {
-      next(error);
-    }
+  async refund(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try { const uid = (req as unknown as { user: { id: string } }).user.id; res.json({ success: true, data: await paymentsService.refund(String(req.params.id), req.body.amount, String(req.body.reason), uid) }); } catch (e) { next(e); }
   }
-
-  async search(req: Request, res: Response, next: NextFunction): Promise<void> {
-    try {
-      const params = parsePagination(req.query as Record<string, unknown>);
-      const query = String(Array.isArray(req.query.q) ? req.query.q[0] : req.query.q || '');
-      const result = await paymentsService.search(query, params);
-      res.status(200).json({ success: true, ...result });
-    } catch (error) {
-      next(error);
-    }
+  async cancelPayment(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try { const uid = (req as unknown as { user: { id: string } }).user.id; await paymentsService.cancelPayment(String(req.params.id), uid); res.json({ success: true, message: 'Payment cancelled' }); } catch (e) { next(e); }
+  }
+  async handleWebhook(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try { await paymentsService.handleStripeWebhook(req.body); res.json({ received: true }); } catch (e) { next(e); }
+  }
+  async getMyPayments(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try { const uid = (req as unknown as { user: { id: string } }).user.id; const p = parsePagination(req.query as Record<string, unknown>); res.json({ success: true, ...await paymentsService.getMyPayments(uid, p) }); } catch (e) { next(e); }
+  }
+  async getStats(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try { const start = req.query.startDate ? new Date(String(req.query.startDate)) : undefined; const end = req.query.endDate ? new Date(String(req.query.endDate)) : undefined; res.json({ success: true, data: await paymentsService.getStats(start, end) }); } catch (e) { next(e); }
   }
 }
-
 export const paymentsController = new PaymentsController();

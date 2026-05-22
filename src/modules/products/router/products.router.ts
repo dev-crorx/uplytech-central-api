@@ -2,15 +2,17 @@ import { Router } from 'express';
 import { productsController } from '../controller/products.controller';
 import { authenticate } from '../../../core/middleware/auth';
 import { auditLog } from '../../../core/middleware/audit';
-
 const router = Router();
-
 router.get('/', authenticate as never, (req, res, next) => productsController.findAll(req, res, next));
 router.get('/search', authenticate as never, (req, res, next) => productsController.search(req, res, next));
+router.get('/low-stock', authenticate as never, (req, res, next) => productsController.getLowStock(req, res, next));
+router.get('/sku/:sku', authenticate as never, (req, res, next) => productsController.findBySku(req, res, next));
+router.post('/', authenticate as never, auditLog('CREATE_PRODUCT', 'product') as never, (req, res, next) => productsController.create(req, res, next));
 router.get('/:id', authenticate as never, (req, res, next) => productsController.findById(req, res, next));
-router.post('/', authenticate as never, auditLog('CREATE', 'products') as never, (req, res, next) => productsController.create(req, res, next));
-router.put('/:id', authenticate as never, auditLog('UPDATE', 'products') as never, (req, res, next) => productsController.update(req, res, next));
-router.patch('/:id', authenticate as never, auditLog('UPDATE', 'products') as never, (req, res, next) => productsController.update(req, res, next));
-router.delete('/:id', authenticate as never, auditLog('DELETE', 'products') as never, (req, res, next) => productsController.delete(req, res, next));
-
+router.put('/:id', authenticate as never, auditLog('UPDATE_PRODUCT', 'product') as never, (req, res, next) => productsController.update(req, res, next));
+router.delete('/:id', authenticate as never, auditLog('DELETE_PRODUCT', 'product') as never, (req, res, next) => productsController.delete(req, res, next));
+router.put('/:id/stock', authenticate as never, auditLog('UPDATE_STOCK', 'product') as never, (req, res, next) => productsController.updateStock(req, res, next));
+router.put('/:id/price', authenticate as never, auditLog('UPDATE_PRICE', 'product') as never, (req, res, next) => productsController.updatePrice(req, res, next));
+router.post('/:id/activate', authenticate as never, auditLog('ACTIVATE', 'product') as never, (req, res, next) => productsController.activate(req, res, next));
+router.post('/:id/deactivate', authenticate as never, auditLog('DEACTIVATE', 'product') as never, (req, res, next) => productsController.deactivate(req, res, next));
 export { router as productsRouter };

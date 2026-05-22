@@ -2,15 +2,17 @@ import { Router } from 'express';
 import { wikiController } from '../controller/wiki.controller';
 import { authenticate } from '../../../core/middleware/auth';
 import { auditLog } from '../../../core/middleware/audit';
-
 const router = Router();
-
-router.get('/', authenticate as never, (req, res, next) => wikiController.findAll(req, res, next));
-router.get('/search', authenticate as never, (req, res, next) => wikiController.search(req, res, next));
-router.get('/:id', authenticate as never, (req, res, next) => wikiController.findById(req, res, next));
-router.post('/', authenticate as never, auditLog('CREATE', 'wiki') as never, (req, res, next) => wikiController.create(req, res, next));
-router.put('/:id', authenticate as never, auditLog('UPDATE', 'wiki') as never, (req, res, next) => wikiController.update(req, res, next));
-router.patch('/:id', authenticate as never, auditLog('UPDATE', 'wiki') as never, (req, res, next) => wikiController.update(req, res, next));
-router.delete('/:id', authenticate as never, auditLog('DELETE', 'wiki') as never, (req, res, next) => wikiController.delete(req, res, next));
-
+router.get('/spaces', authenticate as never, (req, res, next) => wikiController.getSpaces(req, res, next));
+router.post('/spaces', authenticate as never, auditLog('CREATE_SPACE', 'wiki') as never, (req, res, next) => wikiController.createSpace(req, res, next));
+router.get('/spaces/:spaceId/pages', authenticate as never, (req, res, next) => wikiController.getPages(req, res, next));
+router.get('/spaces/:spaceId/tree', authenticate as never, (req, res, next) => wikiController.getPageTree(req, res, next));
+router.get('/slug/:spaceSlug/:pageSlug', authenticate as never, (req, res, next) => wikiController.getPageBySlug(req, res, next));
+router.get('/search', authenticate as never, (req, res, next) => wikiController.searchPages(req, res, next));
+router.post('/pages', authenticate as never, auditLog('CREATE_PAGE', 'wiki') as never, (req, res, next) => wikiController.createPage(req, res, next));
+router.get('/pages/:id', authenticate as never, (req, res, next) => wikiController.getPage(req, res, next));
+router.put('/pages/:id', authenticate as never, auditLog('UPDATE_PAGE', 'wiki') as never, (req, res, next) => wikiController.updatePage(req, res, next));
+router.delete('/pages/:id', authenticate as never, auditLog('DELETE_PAGE', 'wiki') as never, (req, res, next) => wikiController.deletePage(req, res, next));
+router.get('/pages/:id/revisions', authenticate as never, (req, res, next) => wikiController.getRevisions(req, res, next));
+router.post('/pages/:id/revert', authenticate as never, auditLog('REVERT_PAGE', 'wiki') as never, (req, res, next) => wikiController.revertToRevision(req, res, next));
 export { router as wikiRouter };

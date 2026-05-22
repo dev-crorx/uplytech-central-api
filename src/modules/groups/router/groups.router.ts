@@ -2,15 +2,15 @@ import { Router } from 'express';
 import { groupsController } from '../controller/groups.controller';
 import { authenticate } from '../../../core/middleware/auth';
 import { auditLog } from '../../../core/middleware/audit';
-
 const router = Router();
-
 router.get('/', authenticate as never, (req, res, next) => groupsController.findAll(req, res, next));
-router.get('/search', authenticate as never, (req, res, next) => groupsController.search(req, res, next));
+router.get('/my', authenticate as never, (req, res, next) => groupsController.getMyGroups(req, res, next));
+router.post('/', authenticate as never, auditLog('CREATE_GROUP', 'group') as never, (req, res, next) => groupsController.create(req, res, next));
 router.get('/:id', authenticate as never, (req, res, next) => groupsController.findById(req, res, next));
-router.post('/', authenticate as never, auditLog('CREATE', 'groups') as never, (req, res, next) => groupsController.create(req, res, next));
-router.put('/:id', authenticate as never, auditLog('UPDATE', 'groups') as never, (req, res, next) => groupsController.update(req, res, next));
-router.patch('/:id', authenticate as never, auditLog('UPDATE', 'groups') as never, (req, res, next) => groupsController.update(req, res, next));
-router.delete('/:id', authenticate as never, auditLog('DELETE', 'groups') as never, (req, res, next) => groupsController.delete(req, res, next));
-
+router.put('/:id', authenticate as never, auditLog('UPDATE_GROUP', 'group') as never, (req, res, next) => groupsController.update(req, res, next));
+router.delete('/:id', authenticate as never, auditLog('DELETE_GROUP', 'group') as never, (req, res, next) => groupsController.delete(req, res, next));
+router.post('/:id/join', authenticate as never, (req, res, next) => groupsController.join(req, res, next));
+router.post('/:id/leave', authenticate as never, (req, res, next) => groupsController.leave(req, res, next));
+router.delete('/:id/members/:userId', authenticate as never, auditLog('KICK_MEMBER', 'group') as never, (req, res, next) => groupsController.kickMember(req, res, next));
+router.put('/:id/members/:userId/role', authenticate as never, auditLog('UPDATE_ROLE', 'group') as never, (req, res, next) => groupsController.updateMemberRole(req, res, next));
 export { router as groupsRouter };

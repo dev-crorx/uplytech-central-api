@@ -3,72 +3,41 @@ import { emailService } from '../service/email.service';
 import { parsePagination } from '../../../core/utils';
 
 export class EmailController {
-  async findAll(req: Request, res: Response, next: NextFunction): Promise<void> {
-    try {
-      const params = parsePagination(req.query as Record<string, unknown>);
-      const filters: Record<string, unknown> = {};
-      for (const [key, value] of Object.entries(req.query)) {
-        if (!['page', 'limit', 'sortBy', 'sortOrder'].includes(key) && value) {
-          filters[key] = value;
-        }
-      }
-
-      const result = await emailService.findAll(params, filters);
-      res.status(200).json({ success: true, ...result });
-    } catch (error) {
-      next(error);
-    }
+  async getInbox(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try { const uid = (req as unknown as { user: { id: string } }).user.id; const p = parsePagination(req.query as Record<string, unknown>); res.json({ success: true, ...await emailService.getInbox(uid, p) }); } catch (e) { next(e); }
   }
-
+  async getSent(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try { const uid = (req as unknown as { user: { id: string } }).user.id; const p = parsePagination(req.query as Record<string, unknown>); res.json({ success: true, ...await emailService.getSent(uid, p) }); } catch (e) { next(e); }
+  }
   async findById(req: Request, res: Response, next: NextFunction): Promise<void> {
-    try {
-      const record = await emailService.findById(String(req.params.id));
-      res.status(200).json({ success: true, data: record });
-    } catch (error) {
-      next(error);
-    }
+    try { const uid = (req as unknown as { user: { id: string } }).user.id; res.json({ success: true, data: await emailService.findById(String(req.params.id), uid) }); } catch (e) { next(e); }
   }
-
-  async create(req: Request, res: Response, next: NextFunction): Promise<void> {
-    try {
-      const userId = (req as unknown as { user?: { id: string } }).user?.id;
-      const record = await emailService.create(req.body, userId);
-      res.status(201).json({ success: true, data: record, message: 'Email created successfully' });
-    } catch (error) {
-      next(error);
-    }
+  async send(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try { const uid = (req as unknown as { user: { id: string } }).user.id; res.status(201).json({ success: true, data: await emailService.send(req.body, uid) }); } catch (e) { next(e); }
   }
-
-  async update(req: Request, res: Response, next: NextFunction): Promise<void> {
-    try {
-      const userId = (req as unknown as { user?: { id: string } }).user?.id;
-      const record = await emailService.update(String(req.params.id), req.body, userId);
-      res.status(200).json({ success: true, data: record, message: 'Email updated successfully' });
-    } catch (error) {
-      next(error);
-    }
+  async sendExternal(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try { const uid = (req as unknown as { user: { id: string } }).user.id; res.status(201).json({ success: true, data: await emailService.sendExternal(req.body, uid) }); } catch (e) { next(e); }
   }
-
   async delete(req: Request, res: Response, next: NextFunction): Promise<void> {
-    try {
-      const userId = (req as unknown as { user?: { id: string } }).user?.id;
-      await emailService.delete(String(req.params.id), userId);
-      res.status(200).json({ success: true, message: 'Email deleted successfully' });
-    } catch (error) {
-      next(error);
-    }
+    try { const uid = (req as unknown as { user: { id: string } }).user.id; await emailService.delete(String(req.params.id), uid); res.json({ success: true }); } catch (e) { next(e); }
   }
-
+  async markAsRead(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try { const uid = (req as unknown as { user: { id: string } }).user.id; await emailService.markAsRead(String(req.params.id), uid); res.json({ success: true }); } catch (e) { next(e); }
+  }
+  async markAsUnread(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try { const uid = (req as unknown as { user: { id: string } }).user.id; await emailService.markAsUnread(String(req.params.id), uid); res.json({ success: true }); } catch (e) { next(e); }
+  }
+  async getUnreadCount(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try { const uid = (req as unknown as { user: { id: string } }).user.id; const count = await emailService.getUnreadCount(uid); res.json({ success: true, data: { count } }); } catch (e) { next(e); }
+  }
+  async getTemplates(_req: Request, res: Response, next: NextFunction): Promise<void> {
+    try { res.json({ success: true, data: await emailService.getTemplates() }); } catch (e) { next(e); }
+  }
+  async createTemplate(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try { const uid = (req as unknown as { user: { id: string } }).user.id; res.status(201).json({ success: true, data: await emailService.createTemplate(req.body, uid) }); } catch (e) { next(e); }
+  }
   async search(req: Request, res: Response, next: NextFunction): Promise<void> {
-    try {
-      const params = parsePagination(req.query as Record<string, unknown>);
-      const query = String(Array.isArray(req.query.q) ? req.query.q[0] : req.query.q || '');
-      const result = await emailService.search(query, params);
-      res.status(200).json({ success: true, ...result });
-    } catch (error) {
-      next(error);
-    }
+    try { const uid = (req as unknown as { user: { id: string } }).user.id; const p = parsePagination(req.query as Record<string, unknown>); res.json({ success: true, ...await emailService.search(uid, String(req.query.q || ''), p) }); } catch (e) { next(e); }
   }
 }
-
 export const emailController = new EmailController();

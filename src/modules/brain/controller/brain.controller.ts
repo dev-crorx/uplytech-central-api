@@ -1,140 +1,40 @@
-import { Response, NextFunction } from 'express';
-import { AuthenticatedRequest } from '../../../core/types';
+import { Request, Response, NextFunction } from 'express';
 import { brainService } from '../service/brain.service';
 import { parsePagination } from '../../../core/utils';
 
 export class BrainController {
-  async query(req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> {
-    try {
-      const { input, context } = req.body;
-      const result = await brainService.query(input, context, req.user?.id);
-      res.status(200).json({ success: true, data: result });
-    } catch (error) {
-      next(error);
-    }
+  async chat(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try { const uid = (req as unknown as { user: { id: string } }).user.id; res.json({ success: true, data: await brainService.chat(uid, String(req.body.message), req.body.conversationId || undefined) }); } catch (e) { next(e); }
   }
-
-  async teach(req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> {
-    try {
-      const { input, output, context } = req.body;
-      const result = await brainService.teach(input, output, context, req.user?.id);
-      res.status(200).json({ success: true, data: result });
-    } catch (error) {
-      next(error);
-    }
+  async train(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try { const uid = (req as unknown as { user: { id: string } }).user.id; res.status(201).json({ success: true, data: await brainService.train(req.body, uid) }); } catch (e) { next(e); }
   }
-
-  async memorize(req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> {
-    try {
-      const { category, key, value, weight } = req.body;
-      const result = await brainService.memorize(category, key, value, weight, req.user?.id);
-      res.status(200).json({ success: true, data: result });
-    } catch (error) {
-      next(error);
-    }
+  async trainBatch(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try { const uid = (req as unknown as { user: { id: string } }).user.id; res.json({ success: true, data: await brainService.trainBatch(req.body.entries, uid) }); } catch (e) { next(e); }
   }
-
-  async forget(req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> {
-    try {
-      const { category, key } = req.body;
-      const result = await brainService.forget(category, key, req.user?.id);
-      res.status(200).json({ success: true, data: result });
-    } catch (error) {
-      next(error);
-    }
+  async getConversations(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try { const uid = (req as unknown as { user: { id: string } }).user.id; const p = parsePagination(req.query as Record<string, unknown>); res.json({ success: true, ...await brainService.getConversations(uid, p) }); } catch (e) { next(e); }
   }
-
-  async feedback(req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> {
-    try {
-      const { interactionId, rating } = req.body;
-      const result = await brainService.feedback(interactionId, rating, req.user?.id);
-      res.status(200).json({ success: true, data: result });
-    } catch (error) {
-      next(error);
-    }
+  async getConversation(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try { const uid = (req as unknown as { user: { id: string } }).user.id; res.json({ success: true, data: await brainService.getConversation(String(req.params.id), uid) }); } catch (e) { next(e); }
   }
-
-  async train(req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> {
-    try {
-      const { category } = req.body;
-      const result = await brainService.train(category, req.user?.id);
-      res.status(200).json({ success: true, data: result });
-    } catch (error) {
-      next(error);
-    }
+  async deleteConversation(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try { const uid = (req as unknown as { user: { id: string } }).user.id; await brainService.deleteConversation(String(req.params.id), uid); res.json({ success: true }); } catch (e) { next(e); }
   }
-
-  async addTrainingData(req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> {
-    try {
-      const { category, input, output, weight } = req.body;
-      const result = await brainService.addTrainingData(category, input, output, weight, req.user?.id);
-      res.status(201).json({ success: true, data: result });
-    } catch (error) {
-      next(error);
-    }
+  async getKnowledge(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try { const p = parsePagination(req.query as Record<string, unknown>); res.json({ success: true, ...await brainService.getKnowledge(p, req.query.category ? String(req.query.category) : undefined) }); } catch (e) { next(e); }
   }
-
-  async validateTrainingData(req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> {
-    try {
-      const result = await brainService.validateTrainingData(String(req.params.id), req.user?.id);
-      res.status(200).json({ success: true, data: result });
-    } catch (error) {
-      next(error);
-    }
+  async deleteKnowledge(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try { const uid = (req as unknown as { user: { id: string } }).user.id; await brainService.deleteKnowledge(String(req.params.id), uid); res.json({ success: true }); } catch (e) { next(e); }
   }
-
-  async getTrainingData(req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> {
-    try {
-      const params = parsePagination(req.query as Record<string, unknown>);
-      const category = req.query.category as string | undefined;
-      const result = await brainService.getTrainingData(params, category);
-      res.status(200).json({ success: true, ...result });
-    } catch (error) {
-      next(error);
-    }
+  async getPersonality(_req: Request, res: Response, next: NextFunction): Promise<void> {
+    try { res.json({ success: true, data: await brainService.getPersonality() }); } catch (e) { next(e); }
   }
-
-  async getMemories(req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> {
-    try {
-      const params = parsePagination(req.query as Record<string, unknown>);
-      const category = req.query.category as string | undefined;
-      const result = await brainService.getMemories(params, category);
-      res.status(200).json({ success: true, ...result });
-    } catch (error) {
-      next(error);
-    }
+  async updatePersonality(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try { const uid = (req as unknown as { user: { id: string } }).user.id; res.json({ success: true, data: await brainService.updatePersonality(req.body, uid) }); } catch (e) { next(e); }
   }
-
-  async getPatterns(req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> {
-    try {
-      const params = parsePagination(req.query as Record<string, unknown>);
-      const context = req.query.context as string | undefined;
-      const result = await brainService.getPatterns(params, context);
-      res.status(200).json({ success: true, ...result });
-    } catch (error) {
-      next(error);
-    }
-  }
-
-  async getInteractions(req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> {
-    try {
-      const params = parsePagination(req.query as Record<string, unknown>);
-      const userId = req.query.userId as string | undefined;
-      const result = await brainService.getInteractions(params, userId);
-      res.status(200).json({ success: true, ...result });
-    } catch (error) {
-      next(error);
-    }
-  }
-
-  async getStats(req: AuthenticatedRequest, res: Response, next: NextFunction): Promise<void> {
-    try {
-      const stats = await brainService.getStats();
-      res.status(200).json({ success: true, data: stats });
-    } catch (error) {
-      next(error);
-    }
+  async getStats(_req: Request, res: Response, next: NextFunction): Promise<void> {
+    try { res.json({ success: true, data: await brainService.getStats() }); } catch (e) { next(e); }
   }
 }
-
 export const brainController = new BrainController();

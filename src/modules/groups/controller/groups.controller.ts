@@ -4,71 +4,34 @@ import { parsePagination } from '../../../core/utils';
 
 export class GroupsController {
   async findAll(req: Request, res: Response, next: NextFunction): Promise<void> {
-    try {
-      const params = parsePagination(req.query as Record<string, unknown>);
-      const filters: Record<string, unknown> = {};
-      for (const [key, value] of Object.entries(req.query)) {
-        if (!['page', 'limit', 'sortBy', 'sortOrder'].includes(key) && value) {
-          filters[key] = value;
-        }
-      }
-
-      const result = await groupsService.findAll(params, filters);
-      res.status(200).json({ success: true, ...result });
-    } catch (error) {
-      next(error);
-    }
+    try { const p = parsePagination(req.query as Record<string, unknown>); const r = await groupsService.findAll(p, { isPublic: req.query.isPublic === 'true' ? true : undefined }); res.json({ success: true, ...r }); } catch (e) { next(e); }
   }
-
   async findById(req: Request, res: Response, next: NextFunction): Promise<void> {
-    try {
-      const record = await groupsService.findById(String(req.params.id));
-      res.status(200).json({ success: true, data: record });
-    } catch (error) {
-      next(error);
-    }
+    try { res.json({ success: true, data: await groupsService.findById(String(req.params.id)) }); } catch (e) { next(e); }
   }
-
   async create(req: Request, res: Response, next: NextFunction): Promise<void> {
-    try {
-      const userId = (req as unknown as { user?: { id: string } }).user?.id;
-      const record = await groupsService.create(req.body, userId);
-      res.status(201).json({ success: true, data: record, message: 'Group created successfully' });
-    } catch (error) {
-      next(error);
-    }
+    try { const uid = (req as unknown as { user: { id: string } }).user.id; const r = await groupsService.create(req.body, uid); res.status(201).json({ success: true, data: r }); } catch (e) { next(e); }
   }
-
   async update(req: Request, res: Response, next: NextFunction): Promise<void> {
-    try {
-      const userId = (req as unknown as { user?: { id: string } }).user?.id;
-      const record = await groupsService.update(String(req.params.id), req.body, userId);
-      res.status(200).json({ success: true, data: record, message: 'Group updated successfully' });
-    } catch (error) {
-      next(error);
-    }
+    try { const uid = (req as unknown as { user: { id: string } }).user.id; const r = await groupsService.update(String(req.params.id), req.body, uid); res.json({ success: true, data: r }); } catch (e) { next(e); }
   }
-
   async delete(req: Request, res: Response, next: NextFunction): Promise<void> {
-    try {
-      const userId = (req as unknown as { user?: { id: string } }).user?.id;
-      await groupsService.delete(String(req.params.id), userId);
-      res.status(200).json({ success: true, message: 'Group deleted successfully' });
-    } catch (error) {
-      next(error);
-    }
+    try { const uid = (req as unknown as { user: { id: string } }).user.id; await groupsService.delete(String(req.params.id), uid); res.json({ success: true, message: 'Group deleted' }); } catch (e) { next(e); }
   }
-
-  async search(req: Request, res: Response, next: NextFunction): Promise<void> {
-    try {
-      const params = parsePagination(req.query as Record<string, unknown>);
-      const query = String(Array.isArray(req.query.q) ? req.query.q[0] : req.query.q || '');
-      const result = await groupsService.search(query, params);
-      res.status(200).json({ success: true, ...result });
-    } catch (error) {
-      next(error);
-    }
+  async join(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try { const uid = (req as unknown as { user: { id: string } }).user.id; await groupsService.join(String(req.params.id), uid); res.json({ success: true, message: 'Joined group' }); } catch (e) { next(e); }
+  }
+  async leave(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try { const uid = (req as unknown as { user: { id: string } }).user.id; await groupsService.leave(String(req.params.id), uid); res.json({ success: true, message: 'Left group' }); } catch (e) { next(e); }
+  }
+  async kickMember(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try { const uid = (req as unknown as { user: { id: string } }).user.id; await groupsService.kickMember(String(req.params.id), String(req.params.userId), uid); res.json({ success: true, message: 'Member kicked' }); } catch (e) { next(e); }
+  }
+  async updateMemberRole(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try { const uid = (req as unknown as { user: { id: string } }).user.id; await groupsService.updateMemberRole(String(req.params.id), String(req.params.userId), String(req.body.role), uid); res.json({ success: true, message: 'Role updated' }); } catch (e) { next(e); }
+  }
+  async getMyGroups(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try { const uid = (req as unknown as { user: { id: string } }).user.id; res.json({ success: true, data: await groupsService.getMyGroups(uid) }); } catch (e) { next(e); }
   }
 }
-
 export const groupsController = new GroupsController();
