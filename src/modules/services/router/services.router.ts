@@ -1,0 +1,16 @@
+import { Router } from 'express';
+import { servicesController } from '../controller/services.controller';
+import { authenticate } from '../../../core/middleware/auth';
+import { auditLog } from '../../../core/middleware/audit';
+
+const router = Router();
+
+router.get('/', authenticate as never, (req, res, next) => servicesController.findAll(req, res, next));
+router.get('/search', authenticate as never, (req, res, next) => servicesController.search(req, res, next));
+router.get('/:id', authenticate as never, (req, res, next) => servicesController.findById(req, res, next));
+router.post('/', authenticate as never, auditLog('CREATE', 'services') as never, (req, res, next) => servicesController.create(req, res, next));
+router.put('/:id', authenticate as never, auditLog('UPDATE', 'services') as never, (req, res, next) => servicesController.update(req, res, next));
+router.patch('/:id', authenticate as never, auditLog('UPDATE', 'services') as never, (req, res, next) => servicesController.update(req, res, next));
+router.delete('/:id', authenticate as never, auditLog('DELETE', 'services') as never, (req, res, next) => servicesController.delete(req, res, next));
+
+export { router as servicesRouter };

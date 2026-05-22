@@ -1,0 +1,16 @@
+import { Router } from 'express';
+import { featuresController } from '../controller/features.controller';
+import { authenticate } from '../../../core/middleware/auth';
+import { auditLog } from '../../../core/middleware/audit';
+
+const router = Router();
+
+router.get('/', authenticate as never, (req, res, next) => featuresController.findAll(req, res, next));
+router.get('/search', authenticate as never, (req, res, next) => featuresController.search(req, res, next));
+router.get('/:id', authenticate as never, (req, res, next) => featuresController.findById(req, res, next));
+router.post('/', authenticate as never, auditLog('CREATE', 'features') as never, (req, res, next) => featuresController.create(req, res, next));
+router.put('/:id', authenticate as never, auditLog('UPDATE', 'features') as never, (req, res, next) => featuresController.update(req, res, next));
+router.patch('/:id', authenticate as never, auditLog('UPDATE', 'features') as never, (req, res, next) => featuresController.update(req, res, next));
+router.delete('/:id', authenticate as never, auditLog('DELETE', 'features') as never, (req, res, next) => featuresController.delete(req, res, next));
+
+export { router as featuresRouter };

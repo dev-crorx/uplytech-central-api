@@ -1,0 +1,2063 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+// ============================================================
+// AUTH & USERS
+// ============================================================
+
+model User {
+  id                String    @id @default(uuid())
+  email             String    @unique
+  username          String    @unique
+  passwordHash      String?
+  displayName       String?
+  avatar            String?
+  bio               String?   @db.Text
+  locale            String    @default("en")
+  timezone          String    @default("UTC")
+  emailVerified     Boolean   @default(false)
+  twoFactorEnabled  Boolean   @default(false)
+  twoFactorSecret   String?
+  status            UserStatus @default(ACTIVE)
+  lastLoginAt       DateTime?
+  lastLoginIp       String?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  oauthAccounts     OAuthAccount[]
+  passkeys          Passkey[]
+  sessions          Session[]
+  apiKeys           ApiKey[]
+  userRoles         UserRole[]
+  teamMembers       TeamMember[]
+  groupMembers      GroupMember[]
+  friends           Friend[]       @relation("UserFriends")
+  friendsOf         Friend[]       @relation("FriendOf")
+  friendRequests    FriendRequest[] @relation("FriendRequestSender")
+  friendRequestsReceived FriendRequest[] @relation("FriendRequestReceiver")
+  blogPosts         BlogPost[]
+  comments          Comment[]
+  reactions         Reaction[]
+  tickets           Ticket[]
+  ticketMessages    TicketMessage[]
+  devices           Device[]
+  notifications     Notification[]
+  alerts            Alert[]
+  emails            Email[]
+  chatMessages      ChatMessage[]
+  chatRoomMembers   ChatRoomMember[]
+  wikiPages         WikiPage[]
+  donations         Donation[]
+  invoices          Invoice[]
+  subscriptions     Subscription[]
+  downloads         Download[]
+  economyAccounts   EconomyAccount[]
+  forumPosts        ForumPost[]
+  forumReplies      ForumReply[]
+  tournaments       TournamentParticipant[]
+  auditLogs         AuditLog[]
+  streamConfigs     StreamConfig[]
+  apartments        ApartmentResident[]
+  ownedApartments   Apartment[]
+  services          ServiceOwner[]
+  products          Product[]      @relation("ProductCreator")
+  licenses          License[]
+  whitelistEntries  WhitelistEntry[]
+  analyticsEvents   AnalyticsEvent[]
+  brainInteractions BrainInteraction[]
+  files             FileUpload[]
+  accountingEntries AccountingEntry[]
+
+  @@index([email])
+  @@index([username])
+  @@index([status])
+  @@map("users")
+}
+
+enum UserStatus {
+  ACTIVE
+  INACTIVE
+  SUSPENDED
+  BANNED
+  PENDING_VERIFICATION
+  DELETED
+}
+
+model OAuthAccount {
+  id           String   @id @default(uuid())
+  userId       String
+  provider     String
+  providerId   String
+  accessToken  String?  @db.Text
+  refreshToken String?  @db.Text
+  expiresAt    DateTime?
+  profile      Json?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerId])
+  @@index([userId])
+  @@map("oauth_accounts")
+}
+
+model Passkey {
+  id              String   @id @default(uuid())
+  userId          String
+  credentialId    String   @unique @db.VarChar(512)
+  publicKey       String   @db.Text
+  counter         BigInt   @default(0)
+  deviceType      String?
+  backedUp        Boolean  @default(false)
+  transports      String?  @db.Text
+  name            String?
+  lastUsedAt      DateTime?
+  createdAt       DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("passkeys")
+}
+
+model Session {
+  id           String   @id @default(uuid())
+  userId       String
+  token        String   @unique
+  refreshToken String?  @unique
+  ipAddress    String?
+  userAgent    String?  @db.Text
+  expiresAt    DateTime
+  createdAt    DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([token])
+  @@map("sessions")
+}
+
+model ApiKey {
+  id          String      @id @default(uuid())
+  userId      String
+  name        String
+  keyHash     String      @unique
+  prefix      String
+  scopes      Json
+  rateLimit   Int         @default(1000)
+  expiresAt   DateTime?
+  lastUsedAt  DateTime?
+  status      ApiKeyStatus @default(ACTIVE)
+  isBeta      Boolean     @default(false)
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([prefix])
+  @@map("api_keys")
+}
+
+enum ApiKeyStatus {
+  ACTIVE
+  REVOKED
+  EXPIRED
+}
+
+// ============================================================
+// ROLES & PERMISSIONS
+// ============================================================
+
+model Role {
+  id          String     @id @default(uuid())
+  name        String     @unique
+  displayName String
+  description String?    @db.Text
+  color       String?
+  icon        String?
+  isSystem    Boolean    @default(false)
+  priority    Int        @default(0)
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+
+  userRoles       UserRole[]
+  rolePermissions RolePermission[]
+
+  @@map("roles")
+}
+
+model Permission {
+  id          String   @id @default(uuid())
+  resource    String
+  action      String
+  description String?  @db.Text
+  createdAt   DateTime @default(now())
+
+  rolePermissions RolePermission[]
+
+  @@unique([resource, action])
+  @@map("permissions")
+}
+
+model UserRole {
+  id        String   @id @default(uuid())
+  userId    String
+  roleId    String
+  grantedBy String?
+  expiresAt DateTime?
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role Role @relation(fields: [roleId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, roleId])
+  @@map("user_roles")
+}
+
+model RolePermission {
+  id           String   @id @default(uuid())
+  roleId       String
+  permissionId String
+  createdAt    DateTime @default(now())
+
+  role       Role       @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  permission Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+
+  @@unique([roleId, permissionId])
+  @@map("role_permissions")
+}
+
+// ============================================================
+// TEAMS & GROUPS
+// ============================================================
+
+model Team {
+  id          String   @id @default(uuid())
+  name        String
+  slug        String   @unique
+  description String?  @db.Text
+  avatar      String?
+  ownerId     String
+  isPublic    Boolean  @default(false)
+  maxMembers  Int      @default(50)
+  metadata    Json?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  members TeamMember[]
+
+  @@map("teams")
+}
+
+model TeamMember {
+  id        String     @id @default(uuid())
+  teamId    String
+  userId    String
+  role      TeamRole   @default(MEMBER)
+  joinedAt  DateTime   @default(now())
+
+  team Team @relation(fields: [teamId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([teamId, userId])
+  @@map("team_members")
+}
+
+enum TeamRole {
+  OWNER
+  ADMIN
+  MODERATOR
+  MEMBER
+}
+
+model Group {
+  id          String   @id @default(uuid())
+  name        String
+  slug        String   @unique
+  description String?  @db.Text
+  avatar      String?
+  type        GroupType @default(GENERAL)
+  isPublic    Boolean  @default(true)
+  metadata    Json?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  members GroupMember[]
+
+  @@map("groups")
+}
+
+model GroupMember {
+  id       String     @id @default(uuid())
+  groupId  String
+  userId   String
+  role     GroupRole   @default(MEMBER)
+  joinedAt DateTime   @default(now())
+
+  group Group @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([groupId, userId])
+  @@map("group_members")
+}
+
+enum GroupType {
+  GENERAL
+  PROJECT
+  DEPARTMENT
+  COMMUNITY
+  GAMING
+}
+
+enum GroupRole {
+  OWNER
+  ADMIN
+  MODERATOR
+  MEMBER
+}
+
+// ============================================================
+// APARTMENTS & AREAS
+// ============================================================
+
+model Apartment {
+  id          String           @id @default(uuid())
+  name        String
+  number      String
+  floor       Int?
+  building    String?
+  areaId      String?
+  ownerId     String
+  type        ApartmentType    @default(STANDARD)
+  status      ApartmentStatus  @default(AVAILABLE)
+  description String?          @db.Text
+  metadata    Json?
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+
+  owner     User               @relation(fields: [ownerId], references: [id])
+  area      Area?              @relation(fields: [areaId], references: [id])
+  residents ApartmentResident[]
+
+  @@index([areaId])
+  @@index([ownerId])
+  @@map("apartments")
+}
+
+enum ApartmentType {
+  STANDARD
+  PREMIUM
+  PENTHOUSE
+  STUDIO
+  OFFICE
+}
+
+enum ApartmentStatus {
+  AVAILABLE
+  OCCUPIED
+  MAINTENANCE
+  RESERVED
+}
+
+model ApartmentResident {
+  id          String   @id @default(uuid())
+  apartmentId String
+  userId      String
+  role        String   @default("resident")
+  movedInAt   DateTime @default(now())
+  movedOutAt  DateTime?
+
+  apartment Apartment @relation(fields: [apartmentId], references: [id], onDelete: Cascade)
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([apartmentId, userId])
+  @@map("apartment_residents")
+}
+
+model Area {
+  id          String    @id @default(uuid())
+  name        String
+  slug        String    @unique
+  description String?   @db.Text
+  type        AreaType  @default(GENERAL)
+  parentId    String?
+  metadata    Json?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  parent     Area?       @relation("AreaHierarchy", fields: [parentId], references: [id])
+  children   Area[]      @relation("AreaHierarchy")
+  apartments Apartment[]
+
+  @@index([parentId])
+  @@map("areas")
+}
+
+enum AreaType {
+  GENERAL
+  RESIDENTIAL
+  COMMERCIAL
+  INDUSTRIAL
+  GAMING
+  VIRTUAL
+}
+
+// ============================================================
+// BLOG & CONTENT
+// ============================================================
+
+model BlogPost {
+  id          String       @id @default(uuid())
+  authorId    String
+  title       String
+  slug        String       @unique
+  excerpt     String?      @db.Text
+  content     String       @db.LongText
+  coverImage  String?
+  status      ContentStatus @default(DRAFT)
+  categoryId  String?
+  tags        Json?
+  publishedAt DateTime?
+  metadata    Json?
+  viewCount   Int          @default(0)
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+
+  author    User      @relation(fields: [authorId], references: [id])
+  category  Category? @relation(fields: [categoryId], references: [id])
+  comments  Comment[]
+  reactions Reaction[]
+
+  @@index([authorId])
+  @@index([slug])
+  @@index([status])
+  @@map("blog_posts")
+}
+
+model Category {
+  id          String   @id @default(uuid())
+  name        String
+  slug        String   @unique
+  description String?  @db.Text
+  parentId    String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  parent   Category?  @relation("CategoryHierarchy", fields: [parentId], references: [id])
+  children Category[] @relation("CategoryHierarchy")
+  posts    BlogPost[]
+
+  @@map("categories")
+}
+
+enum ContentStatus {
+  DRAFT
+  PUBLISHED
+  ARCHIVED
+  REVIEW
+  SCHEDULED
+}
+
+// ============================================================
+// COMMENTS & REACTIONS
+// ============================================================
+
+model Comment {
+  id           String        @id @default(uuid())
+  authorId     String
+  content      String        @db.Text
+  resourceType String
+  resourceId   String
+  parentId     String?
+  status       CommentStatus @default(APPROVED)
+  editedAt     DateTime?
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+
+  author    User       @relation(fields: [authorId], references: [id])
+  parent    Comment?   @relation("CommentThread", fields: [parentId], references: [id])
+  children  Comment[]  @relation("CommentThread")
+  reactions Reaction[]
+  blogPost  BlogPost?  @relation(fields: [resourceId], references: [id], map: "comment_blog_post_fk")
+
+  @@index([authorId])
+  @@index([resourceType, resourceId])
+  @@map("comments")
+}
+
+enum CommentStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  SPAM
+  DELETED
+}
+
+model Reaction {
+  id           String   @id @default(uuid())
+  userId       String
+  type         String
+  resourceType String
+  resourceId   String
+  createdAt    DateTime @default(now())
+
+  user     User      @relation(fields: [userId], references: [id])
+  blogPost BlogPost? @relation(fields: [resourceId], references: [id], map: "reaction_blog_post_fk")
+  comment  Comment?  @relation(fields: [resourceId], references: [id], map: "reaction_comment_fk")
+
+  @@unique([userId, type, resourceType, resourceId])
+  @@index([resourceType, resourceId])
+  @@map("reactions")
+}
+
+// ============================================================
+// TICKETS
+// ============================================================
+
+model Ticket {
+  id          String       @id @default(uuid())
+  number      Int          @unique @default(autoincrement())
+  creatorId   String
+  assigneeId  String?
+  title       String
+  description String       @db.Text
+  type        TicketType
+  priority    TicketPriority @default(MEDIUM)
+  status      TicketStatus   @default(OPEN)
+  category    String?
+  tags        Json?
+  metadata    Json?
+  resolvedAt  DateTime?
+  closedAt    DateTime?
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+
+  creator  User            @relation(fields: [creatorId], references: [id])
+  messages TicketMessage[]
+
+  @@index([creatorId])
+  @@index([status])
+  @@index([type])
+  @@map("tickets")
+}
+
+model TicketMessage {
+  id        String   @id @default(uuid())
+  ticketId  String
+  authorId  String
+  content   String   @db.Text
+  isInternal Boolean @default(false)
+  attachments Json?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  ticket Ticket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  author User   @relation(fields: [authorId], references: [id])
+
+  @@index([ticketId])
+  @@map("ticket_messages")
+}
+
+enum TicketType {
+  SUPPORT
+  SECURITY
+  REPORT
+  BUG
+  FEATURE_REQUEST
+  BILLING
+  ABUSE
+  OTHER
+}
+
+enum TicketPriority {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+  URGENT
+}
+
+enum TicketStatus {
+  OPEN
+  IN_PROGRESS
+  WAITING_RESPONSE
+  RESOLVED
+  CLOSED
+  REOPENED
+}
+
+// ============================================================
+// FRIENDS
+// ============================================================
+
+model Friend {
+  id        String   @id @default(uuid())
+  userId    String
+  friendId  String
+  createdAt DateTime @default(now())
+
+  user   User @relation("UserFriends", fields: [userId], references: [id], onDelete: Cascade)
+  friend User @relation("FriendOf", fields: [friendId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, friendId])
+  @@map("friends")
+}
+
+model FriendRequest {
+  id         String              @id @default(uuid())
+  senderId   String
+  receiverId String
+  status     FriendRequestStatus @default(PENDING)
+  message    String?
+  createdAt  DateTime            @default(now())
+  updatedAt  DateTime            @updatedAt
+
+  sender   User @relation("FriendRequestSender", fields: [senderId], references: [id])
+  receiver User @relation("FriendRequestReceiver", fields: [receiverId], references: [id])
+
+  @@unique([senderId, receiverId])
+  @@map("friend_requests")
+}
+
+enum FriendRequestStatus {
+  PENDING
+  ACCEPTED
+  REJECTED
+  BLOCKED
+}
+
+// ============================================================
+// PRODUCTS & LICENSES
+// ============================================================
+
+model Product {
+  id          String        @id @default(uuid())
+  name        String
+  slug        String        @unique
+  description String?       @db.Text
+  type        ProductType
+  price       Decimal?      @db.Decimal(10, 2)
+  currency    String        @default("EUR")
+  status      ProductStatus @default(ACTIVE)
+  metadata    Json?
+  images      Json?
+  features    Json?
+  creatorId   String
+  categoryId  String?
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  creator       User           @relation("ProductCreator", fields: [creatorId], references: [id])
+  licenses      License[]
+  subscriptions Subscription[]
+  downloads     Download[]
+
+  @@index([slug])
+  @@index([status])
+  @@map("products")
+}
+
+enum ProductType {
+  SOFTWARE
+  SERVICE
+  GAME
+  PLUGIN
+  THEME
+  SUBSCRIPTION
+  HARDWARE
+  DIGITAL
+  PHYSICAL
+}
+
+enum ProductStatus {
+  ACTIVE
+  INACTIVE
+  DISCONTINUED
+  BETA
+  COMING_SOON
+}
+
+model License {
+  id          String        @id @default(uuid())
+  key         String        @unique
+  userId      String
+  productId   String
+  type        LicenseType
+  status      LicenseStatus @default(ACTIVE)
+  maxDevices  Int           @default(1)
+  activations Int           @default(0)
+  expiresAt   DateTime?
+  metadata    Json?
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  user    User    @relation(fields: [userId], references: [id])
+  product Product @relation(fields: [productId], references: [id])
+
+  @@index([userId])
+  @@index([productId])
+  @@index([key])
+  @@map("licenses")
+}
+
+enum LicenseType {
+  PERPETUAL
+  SUBSCRIPTION
+  TRIAL
+  BETA
+  EDUCATIONAL
+  ENTERPRISE
+}
+
+enum LicenseStatus {
+  ACTIVE
+  EXPIRED
+  REVOKED
+  SUSPENDED
+}
+
+// ============================================================
+// DEVICES
+// ============================================================
+
+model Device {
+  id           String       @id @default(uuid())
+  userId       String
+  name         String
+  type         DeviceType
+  hostname     String?
+  ipAddress    String?
+  macAddress   String?
+  os           String?
+  osVersion    String?
+  fingerprint  String?      @unique
+  status       DeviceStatus @default(ACTIVE)
+  lastSeenAt   DateTime?
+  metadata     Json?
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([fingerprint])
+  @@map("devices")
+}
+
+enum DeviceType {
+  SERVER
+  PC
+  WORKSTATION
+  LAPTOP
+  MOBILE
+  TABLET
+  MODEM
+  ROUTER
+  IOT
+  GAMING_CONSOLE
+  OTHER
+}
+
+enum DeviceStatus {
+  ACTIVE
+  INACTIVE
+  BLOCKED
+  MAINTENANCE
+}
+
+// ============================================================
+// ANALYTICS & METRICS
+// ============================================================
+
+model AnalyticsEvent {
+  id           String   @id @default(uuid())
+  userId       String?
+  sessionId    String?
+  event        String
+  category     String?
+  properties   Json?
+  source       String?
+  ipAddress    String?
+  userAgent    String?  @db.Text
+  referrer     String?
+  timestamp    DateTime @default(now())
+
+  user User? @relation(fields: [userId], references: [id])
+
+  @@index([event])
+  @@index([userId])
+  @@index([timestamp])
+  @@index([source])
+  @@map("analytics_events")
+}
+
+model Metric {
+  id        String   @id @default(uuid())
+  name      String
+  value     Float
+  unit      String?
+  tags      Json?
+  source    String?
+  timestamp DateTime @default(now())
+
+  @@index([name])
+  @@index([timestamp])
+  @@index([source])
+  @@map("metrics")
+}
+
+// ============================================================
+// LOGS & AUDIT
+// ============================================================
+
+model LogEntry {
+  id        String   @id @default(uuid())
+  level     LogLevel
+  message   String   @db.Text
+  source    String?
+  context   Json?
+  stackTrace String? @db.Text
+  timestamp DateTime @default(now())
+
+  @@index([level])
+  @@index([source])
+  @@index([timestamp])
+  @@map("log_entries")
+}
+
+enum LogLevel {
+  DEBUG
+  INFO
+  WARN
+  ERROR
+  FATAL
+}
+
+model AuditLog {
+  id           String   @id @default(uuid())
+  userId       String?
+  action       String
+  resource     String
+  resourceId   String?
+  oldValues    Json?
+  newValues    Json?
+  ipAddress    String?
+  userAgent    String?  @db.Text
+  metadata     Json?
+  timestamp    DateTime @default(now())
+
+  user User? @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+  @@index([action])
+  @@index([resource])
+  @@index([timestamp])
+  @@map("audit_logs")
+}
+
+// ============================================================
+// EMAIL
+// ============================================================
+
+model Email {
+  id          String      @id @default(uuid())
+  userId      String
+  direction   EmailDirection
+  fromAddress String
+  toAddress   String
+  subject     String
+  body        String      @db.LongText
+  htmlBody    String?     @db.LongText
+  status      EmailStatus @default(PENDING)
+  attachments Json?
+  headers     Json?
+  messageId   String?
+  threadId    String?
+  readAt      DateTime?
+  sentAt      DateTime?
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+  @@index([direction])
+  @@index([status])
+  @@index([threadId])
+  @@map("emails")
+}
+
+enum EmailDirection {
+  INCOMING
+  OUTGOING
+}
+
+enum EmailStatus {
+  PENDING
+  SENT
+  DELIVERED
+  FAILED
+  BOUNCED
+  READ
+}
+
+// ============================================================
+// NOTIFICATIONS & ALERTS
+// ============================================================
+
+model Notification {
+  id        String             @id @default(uuid())
+  userId    String
+  type      String
+  title     String
+  message   String             @db.Text
+  data      Json?
+  channel   NotificationChannel @default(IN_APP)
+  readAt    DateTime?
+  createdAt DateTime           @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([type])
+  @@index([readAt])
+  @@map("notifications")
+}
+
+enum NotificationChannel {
+  IN_APP
+  EMAIL
+  PUSH
+  SMS
+  WEBHOOK
+}
+
+model Alert {
+  id          String      @id @default(uuid())
+  userId      String?
+  type        AlertType
+  severity    AlertSeverity
+  title       String
+  message     String      @db.Text
+  source      String?
+  acknowledged Boolean    @default(false)
+  acknowledgedAt DateTime?
+  resolvedAt  DateTime?
+  metadata    Json?
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+
+  user User? @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+  @@index([type])
+  @@index([severity])
+  @@map("alerts")
+}
+
+enum AlertType {
+  SYSTEM
+  SECURITY
+  PERFORMANCE
+  BILLING
+  CUSTOM
+}
+
+enum AlertSeverity {
+  INFO
+  WARNING
+  ERROR
+  CRITICAL
+}
+
+// ============================================================
+// CHAT (Video/Voice/Text)
+// ============================================================
+
+model ChatRoom {
+  id        String       @id @default(uuid())
+  name      String?
+  type      ChatRoomType
+  metadata  Json?
+  createdAt DateTime     @default(now())
+  updatedAt DateTime     @updatedAt
+
+  members  ChatRoomMember[]
+  messages ChatMessage[]
+
+  @@map("chat_rooms")
+}
+
+enum ChatRoomType {
+  DIRECT
+  GROUP
+  CHANNEL
+  VOICE
+  VIDEO
+}
+
+model ChatRoomMember {
+  id       String        @id @default(uuid())
+  roomId   String
+  userId   String
+  role     ChatMemberRole @default(MEMBER)
+  mutedAt  DateTime?
+  joinedAt DateTime      @default(now())
+
+  room ChatRoom @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  user User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([roomId, userId])
+  @@map("chat_room_members")
+}
+
+enum ChatMemberRole {
+  OWNER
+  ADMIN
+  MODERATOR
+  MEMBER
+}
+
+model ChatMessage {
+  id           String          @id @default(uuid())
+  roomId       String
+  senderId     String
+  content      String?         @db.Text
+  type         ChatMessageType @default(TEXT)
+  attachments  Json?
+  replyToId    String?
+  editedAt     DateTime?
+  deletedAt    DateTime?
+  createdAt    DateTime        @default(now())
+
+  room    ChatRoom     @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  sender  User         @relation(fields: [senderId], references: [id])
+  replyTo ChatMessage? @relation("MessageReplies", fields: [replyToId], references: [id])
+  replies ChatMessage[] @relation("MessageReplies")
+
+  @@index([roomId])
+  @@index([senderId])
+  @@map("chat_messages")
+}
+
+enum ChatMessageType {
+  TEXT
+  IMAGE
+  FILE
+  VOICE
+  VIDEO
+  SYSTEM
+}
+
+// ============================================================
+// WIKI & DOCUMENTATION
+// ============================================================
+
+model WikiPage {
+  id          String   @id @default(uuid())
+  title       String
+  slug        String
+  content     String   @db.LongText
+  authorId    String
+  spaceId     String
+  parentId    String?
+  version     Int      @default(1)
+  status      ContentStatus @default(DRAFT)
+  metadata    Json?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  author   User       @relation(fields: [authorId], references: [id])
+  space    WikiSpace  @relation(fields: [spaceId], references: [id])
+  parent   WikiPage?  @relation("WikiHierarchy", fields: [parentId], references: [id])
+  children WikiPage[] @relation("WikiHierarchy")
+  revisions WikiRevision[]
+
+  @@unique([spaceId, slug])
+  @@index([authorId])
+  @@map("wiki_pages")
+}
+
+model WikiSpace {
+  id          String   @id @default(uuid())
+  name        String
+  slug        String   @unique
+  description String?  @db.Text
+  isPublic    Boolean  @default(false)
+  metadata    Json?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  pages WikiPage[]
+
+  @@map("wiki_spaces")
+}
+
+model WikiRevision {
+  id        String   @id @default(uuid())
+  pageId    String
+  content   String   @db.LongText
+  version   Int
+  authorId  String
+  changelog String?  @db.Text
+  createdAt DateTime @default(now())
+
+  page WikiPage @relation(fields: [pageId], references: [id], onDelete: Cascade)
+
+  @@index([pageId])
+  @@map("wiki_revisions")
+}
+
+model DocPage {
+  id          String   @id @default(uuid())
+  title       String
+  slug        String
+  content     String   @db.LongText
+  projectId   String
+  parentId    String?
+  version     String   @default("1.0.0")
+  status      ContentStatus @default(DRAFT)
+  order       Int      @default(0)
+  metadata    Json?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  project  DocProject @relation(fields: [projectId], references: [id])
+  parent   DocPage?   @relation("DocHierarchy", fields: [parentId], references: [id])
+  children DocPage[]  @relation("DocHierarchy")
+
+  @@unique([projectId, slug])
+  @@map("doc_pages")
+}
+
+model DocProject {
+  id          String   @id @default(uuid())
+  name        String
+  slug        String   @unique
+  description String?  @db.Text
+  version     String   @default("1.0.0")
+  isPublic    Boolean  @default(true)
+  metadata    Json?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  pages DocPage[]
+
+  @@map("doc_projects")
+}
+
+// ============================================================
+// DONATIONS & PAYMENTS
+// ============================================================
+
+model Donation {
+  id          String         @id @default(uuid())
+  donorId     String?
+  amount      Decimal        @db.Decimal(10, 2)
+  currency    String         @default("EUR")
+  message     String?        @db.Text
+  anonymous   Boolean        @default(false)
+  status      PaymentStatus  @default(PENDING)
+  stripeId    String?
+  metadata    Json?
+  createdAt   DateTime       @default(now())
+
+  donor User? @relation(fields: [donorId], references: [id])
+
+  @@index([donorId])
+  @@map("donations")
+}
+
+model Payment {
+  id              String        @id @default(uuid())
+  stripePaymentId String?       @unique
+  amount          Decimal       @db.Decimal(10, 2)
+  currency        String        @default("EUR")
+  status          PaymentStatus @default(PENDING)
+  method          String?
+  description     String?
+  invoiceId       String?
+  metadata        Json?
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  invoice Invoice? @relation(fields: [invoiceId], references: [id])
+
+  @@index([stripePaymentId])
+  @@map("payments")
+}
+
+enum PaymentStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  FAILED
+  REFUNDED
+  CANCELLED
+}
+
+model Invoice {
+  id            String        @id @default(uuid())
+  number        String        @unique
+  userId        String
+  items         Json
+  subtotal      Decimal       @db.Decimal(10, 2)
+  taxAmount     Decimal       @db.Decimal(10, 2) @default(0)
+  taxRate       Decimal       @db.Decimal(5, 2) @default(0)
+  total         Decimal       @db.Decimal(10, 2)
+  currency      String        @default("EUR")
+  status        InvoiceStatus @default(DRAFT)
+  dueDate       DateTime?
+  paidAt        DateTime?
+  notes         String?       @db.Text
+  billingAddress Json?
+  metadata      Json?
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+
+  user     User      @relation(fields: [userId], references: [id])
+  payments Payment[]
+
+  @@index([userId])
+  @@index([status])
+  @@map("invoices")
+}
+
+enum InvoiceStatus {
+  DRAFT
+  SENT
+  PAID
+  OVERDUE
+  CANCELLED
+  REFUNDED
+}
+
+// ============================================================
+// TAX & FINANCE
+// ============================================================
+
+model TaxRecord {
+  id          String   @id @default(uuid())
+  period      String
+  type        String
+  amount      Decimal  @db.Decimal(10, 2)
+  taxAmount   Decimal  @db.Decimal(10, 2)
+  currency    String   @default("EUR")
+  status      String   @default("pending")
+  filingDate  DateTime?
+  metadata    Json?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([period])
+  @@index([type])
+  @@map("tax_records")
+}
+
+model FinancialReport {
+  id         String   @id @default(uuid())
+  type       String
+  period     String
+  startDate  DateTime
+  endDate    DateTime
+  data       Json
+  status     String   @default("draft")
+  generatedAt DateTime?
+  metadata   Json?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@index([type])
+  @@index([period])
+  @@map("financial_reports")
+}
+
+model AccountingEntry {
+  id          String   @id @default(uuid())
+  userId      String?
+  type        String
+  category    String
+  description String?  @db.Text
+  amount      Decimal  @db.Decimal(10, 2)
+  currency    String   @default("EUR")
+  debitAccount  String
+  creditAccount String
+  reference   String?
+  date        DateTime
+  metadata    Json?
+  createdAt   DateTime @default(now())
+
+  user User? @relation(fields: [userId], references: [id])
+
+  @@index([type])
+  @@index([date])
+  @@index([category])
+  @@map("accounting_entries")
+}
+
+// ============================================================
+// SUBSCRIPTIONS
+// ============================================================
+
+model Subscription {
+  id               String             @id @default(uuid())
+  userId           String
+  productId        String
+  planId           String?
+  stripeSubscriptionId String?        @unique
+  status           SubscriptionStatus @default(ACTIVE)
+  currentPeriodStart DateTime
+  currentPeriodEnd   DateTime
+  canceledAt       DateTime?
+  trialEndAt       DateTime?
+  metadata         Json?
+  createdAt        DateTime           @default(now())
+  updatedAt        DateTime           @updatedAt
+
+  user    User    @relation(fields: [userId], references: [id])
+  product Product @relation(fields: [productId], references: [id])
+
+  @@index([userId])
+  @@index([productId])
+  @@index([status])
+  @@map("subscriptions")
+}
+
+enum SubscriptionStatus {
+  ACTIVE
+  PAST_DUE
+  CANCELLED
+  PAUSED
+  TRIALING
+  INCOMPLETE
+}
+
+// ============================================================
+// GAMES & TOURNAMENTS
+// ============================================================
+
+model Game {
+  id          String   @id @default(uuid())
+  name        String
+  slug        String   @unique
+  description String?  @db.Text
+  genre       String?
+  coverImage  String?
+  status      String   @default("active")
+  metadata    Json?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  tournaments Tournament[]
+
+  @@map("games")
+}
+
+model Tournament {
+  id          String           @id @default(uuid())
+  name        String
+  slug        String           @unique
+  gameId      String
+  description String?          @db.Text
+  type        TournamentType
+  status      TournamentStatus @default(REGISTRATION)
+  maxPlayers  Int
+  prizePool   Json?
+  rules       String?          @db.Text
+  startDate   DateTime
+  endDate     DateTime?
+  metadata    Json?
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+
+  game         Game                    @relation(fields: [gameId], references: [id])
+  participants TournamentParticipant[]
+  matches      TournamentMatch[]
+
+  @@index([gameId])
+  @@map("tournaments")
+}
+
+enum TournamentType {
+  SINGLE_ELIMINATION
+  DOUBLE_ELIMINATION
+  ROUND_ROBIN
+  SWISS
+  FREE_FOR_ALL
+}
+
+enum TournamentStatus {
+  REGISTRATION
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+}
+
+model TournamentParticipant {
+  id           String   @id @default(uuid())
+  tournamentId String
+  userId       String
+  seed         Int?
+  placement    Int?
+  status       String   @default("registered")
+  createdAt    DateTime @default(now())
+
+  tournament Tournament @relation(fields: [tournamentId], references: [id], onDelete: Cascade)
+  user       User       @relation(fields: [userId], references: [id])
+
+  @@unique([tournamentId, userId])
+  @@map("tournament_participants")
+}
+
+model TournamentMatch {
+  id           String   @id @default(uuid())
+  tournamentId String
+  round        Int
+  matchNumber  Int
+  player1Id    String?
+  player2Id    String?
+  winnerId     String?
+  score        Json?
+  status       String   @default("pending")
+  scheduledAt  DateTime?
+  playedAt     DateTime?
+  metadata     Json?
+  createdAt    DateTime @default(now())
+
+  tournament Tournament @relation(fields: [tournamentId], references: [id], onDelete: Cascade)
+
+  @@index([tournamentId])
+  @@map("tournament_matches")
+}
+
+// ============================================================
+// ECONOMY SYSTEM
+// ============================================================
+
+model EconomyAccount {
+  id        String   @id @default(uuid())
+  userId    String
+  currency  String   @default("UPLY_COIN")
+  balance   Decimal  @db.Decimal(18, 2) @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user         User                @relation(fields: [userId], references: [id])
+  transactions EconomyTransaction[]
+
+  @@unique([userId, currency])
+  @@map("economy_accounts")
+}
+
+model EconomyTransaction {
+  id          String   @id @default(uuid())
+  accountId   String
+  type        String
+  amount      Decimal  @db.Decimal(18, 2)
+  currency    String
+  description String?
+  reference   String?
+  metadata    Json?
+  createdAt   DateTime @default(now())
+
+  account EconomyAccount @relation(fields: [accountId], references: [id])
+
+  @@index([accountId])
+  @@index([type])
+  @@map("economy_transactions")
+}
+
+model EconomyCurrency {
+  id           String  @id @default(uuid())
+  code         String  @unique
+  name         String
+  symbol       String
+  exchangeRate Decimal @db.Decimal(18, 8) @default(1)
+  purchasable  Boolean @default(false)
+  priceEur     Decimal? @db.Decimal(10, 2)
+  metadata     Json?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@map("economy_currencies")
+}
+
+// ============================================================
+// DOWNLOADS, RELEASES & CHANGELOG
+// ============================================================
+
+model Release {
+  id          String        @id @default(uuid())
+  productId   String?
+  version     String
+  title       String
+  notes       String?       @db.LongText
+  type        ReleaseType   @default(STABLE)
+  status      ReleaseStatus @default(DRAFT)
+  publishedAt DateTime?
+  metadata    Json?
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  assets     ReleaseAsset[]
+  changelogs Changelog[]
+
+  @@index([productId])
+  @@map("releases")
+}
+
+enum ReleaseType {
+  STABLE
+  BETA
+  ALPHA
+  RC
+  NIGHTLY
+  HOTFIX
+}
+
+enum ReleaseStatus {
+  DRAFT
+  PUBLISHED
+  ARCHIVED
+  YANKED
+}
+
+model ReleaseAsset {
+  id          String   @id @default(uuid())
+  releaseId   String
+  fileName    String
+  filePath    String
+  fileSize    BigInt
+  mimeType    String?
+  checksum    String?
+  downloads   Int      @default(0)
+  platform    String?
+  arch        String?
+  createdAt   DateTime @default(now())
+
+  release Release @relation(fields: [releaseId], references: [id], onDelete: Cascade)
+
+  @@index([releaseId])
+  @@map("release_assets")
+}
+
+model Download {
+  id        String   @id @default(uuid())
+  userId    String?
+  productId String?
+  assetId   String?
+  fileName  String
+  filePath  String
+  ipAddress String?
+  userAgent String?
+  createdAt DateTime @default(now())
+
+  user    User?    @relation(fields: [userId], references: [id])
+  product Product? @relation(fields: [productId], references: [id])
+
+  @@index([userId])
+  @@index([productId])
+  @@map("downloads")
+}
+
+model Changelog {
+  id          String   @id @default(uuid())
+  releaseId   String?
+  version     String
+  title       String
+  content     String   @db.LongText
+  type        String   @default("release")
+  publishedAt DateTime?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  release Release? @relation(fields: [releaseId], references: [id])
+
+  @@index([releaseId])
+  @@map("changelogs")
+}
+
+// ============================================================
+// FEATURES & ARCHIVE
+// ============================================================
+
+model Feature {
+  id          String        @id @default(uuid())
+  name        String
+  slug        String        @unique
+  description String?       @db.Text
+  status      FeatureStatus @default(PLANNED)
+  priority    Int           @default(0)
+  targetDate  DateTime?
+  metadata    Json?
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  votes FeatureVote[]
+
+  @@map("features")
+}
+
+enum FeatureStatus {
+  PLANNED
+  IN_DEVELOPMENT
+  TESTING
+  RELEASED
+  CANCELLED
+}
+
+model FeatureVote {
+  id        String   @id @default(uuid())
+  featureId String
+  userId    String
+  vote      Int      @default(1)
+  createdAt DateTime @default(now())
+
+  feature Feature @relation(fields: [featureId], references: [id], onDelete: Cascade)
+
+  @@unique([featureId, userId])
+  @@map("feature_votes")
+}
+
+model Archive {
+  id            String   @id @default(uuid())
+  resourceType  String
+  resourceId    String
+  data          Json
+  archivedBy    String?
+  reason        String?
+  restorableUntil DateTime?
+  createdAt     DateTime @default(now())
+
+  @@index([resourceType, resourceId])
+  @@map("archives")
+}
+
+// ============================================================
+// BROADCAST
+// ============================================================
+
+model Broadcast {
+  id          String          @id @default(uuid())
+  title       String
+  message     String          @db.Text
+  type        BroadcastType
+  channels    Json
+  targetRoles Json?
+  scheduledAt DateTime?
+  sentAt      DateTime?
+  status      BroadcastStatus @default(DRAFT)
+  metadata    Json?
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+
+  @@index([status])
+  @@map("broadcasts")
+}
+
+enum BroadcastType {
+  ANNOUNCEMENT
+  MAINTENANCE
+  ALERT
+  PROMOTION
+  UPDATE
+}
+
+enum BroadcastStatus {
+  DRAFT
+  SCHEDULED
+  SENDING
+  SENT
+  CANCELLED
+}
+
+// ============================================================
+// CONTENT SCAN
+// ============================================================
+
+model ContentScan {
+  id           String     @id @default(uuid())
+  resourceType String
+  resourceId   String
+  scanType     String
+  result       ScanResult @default(CLEAN)
+  details      Json?
+  scannedAt    DateTime   @default(now())
+
+  @@index([resourceType, resourceId])
+  @@index([result])
+  @@map("content_scans")
+}
+
+enum ScanResult {
+  CLEAN
+  SUSPICIOUS
+  MALICIOUS
+  ERROR
+}
+
+// ============================================================
+// FILE STORAGE
+// ============================================================
+
+model FileUpload {
+  id          String   @id @default(uuid())
+  userId      String
+  fileName    String
+  originalName String
+  mimeType    String
+  size        BigInt
+  path        String
+  bucket      String   @default("default")
+  isPublic    Boolean  @default(false)
+  checksum    String?
+  metadata    Json?
+  createdAt   DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+  @@index([bucket])
+  @@map("file_uploads")
+}
+
+// ============================================================
+// SERVICES
+// ============================================================
+
+model Service {
+  id          String        @id @default(uuid())
+  name        String
+  slug        String        @unique
+  description String?       @db.Text
+  type        ServiceType
+  status      ServiceStatus @default(RUNNING)
+  endpoint    String?
+  healthCheck String?
+  config      Json?
+  metadata    Json?
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  owners ServiceOwner[]
+
+  @@map("services")
+}
+
+enum ServiceType {
+  WEB_APP
+  API
+  WORKER
+  DATABASE
+  CACHE
+  QUEUE
+  STORAGE
+  PROXY
+  MONITORING
+  CUSTOM
+}
+
+enum ServiceStatus {
+  RUNNING
+  STOPPED
+  DEGRADED
+  MAINTENANCE
+  ERROR
+}
+
+model ServiceOwner {
+  id        String   @id @default(uuid())
+  serviceId String
+  userId    String
+  role      String   @default("maintainer")
+  createdAt DateTime @default(now())
+
+  service Service @relation(fields: [serviceId], references: [id], onDelete: Cascade)
+  user    User    @relation(fields: [userId], references: [id])
+
+  @@unique([serviceId, userId])
+  @@map("service_owners")
+}
+
+// ============================================================
+// IP & WHITELIST
+// ============================================================
+
+model IpEntry {
+  id        String   @id @default(uuid())
+  address   String
+  type      String   @default("ipv4")
+  label     String?
+  status    String   @default("active")
+  metadata  Json?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([address])
+  @@map("ip_entries")
+}
+
+model WhitelistEntry {
+  id           String   @id @default(uuid())
+  userId       String?
+  resourceType String
+  value        String
+  reason       String?
+  expiresAt    DateTime?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  user User? @relation(fields: [userId], references: [id])
+
+  @@index([resourceType])
+  @@map("whitelist_entries")
+}
+
+// ============================================================
+// FORUM
+// ============================================================
+
+model ForumCategory {
+  id          String   @id @default(uuid())
+  name        String
+  slug        String   @unique
+  description String?  @db.Text
+  parentId    String?
+  order       Int      @default(0)
+  isLocked    Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  parent   ForumCategory?  @relation("ForumCategoryHierarchy", fields: [parentId], references: [id])
+  children ForumCategory[] @relation("ForumCategoryHierarchy")
+  posts    ForumPost[]
+
+  @@map("forum_categories")
+}
+
+model ForumPost {
+  id         String        @id @default(uuid())
+  authorId   String
+  categoryId String
+  title      String
+  content    String        @db.LongText
+  isPinned   Boolean       @default(false)
+  isLocked   Boolean       @default(false)
+  viewCount  Int           @default(0)
+  status     ContentStatus @default(PUBLISHED)
+  createdAt  DateTime      @default(now())
+  updatedAt  DateTime      @updatedAt
+
+  author   User           @relation(fields: [authorId], references: [id])
+  category ForumCategory  @relation(fields: [categoryId], references: [id])
+  replies  ForumReply[]
+
+  @@index([authorId])
+  @@index([categoryId])
+  @@map("forum_posts")
+}
+
+model ForumReply {
+  id        String   @id @default(uuid())
+  postId    String
+  authorId  String
+  content   String   @db.LongText
+  parentId  String?
+  isAccepted Boolean @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  post   ForumPost   @relation(fields: [postId], references: [id], onDelete: Cascade)
+  author User        @relation(fields: [authorId], references: [id])
+  parent ForumReply? @relation("ReplyThread", fields: [parentId], references: [id])
+  children ForumReply[] @relation("ReplyThread")
+
+  @@index([postId])
+  @@index([authorId])
+  @@map("forum_replies")
+}
+
+// ============================================================
+// STREAMING (OBS Integration)
+// ============================================================
+
+model StreamConfig {
+  id          String   @id @default(uuid())
+  userId      String
+  name        String
+  platforms   Json
+  streamKey   String?
+  obsConfig   Json?
+  isActive    Boolean  @default(false)
+  metadata    Json?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  user     User          @relation(fields: [userId], references: [id])
+  sessions StreamSession[]
+
+  @@index([userId])
+  @@map("stream_configs")
+}
+
+model StreamSession {
+  id          String   @id @default(uuid())
+  configId    String
+  title       String?
+  status      String   @default("idle")
+  startedAt   DateTime?
+  endedAt     DateTime?
+  viewerCount Int      @default(0)
+  metadata    Json?
+  createdAt   DateTime @default(now())
+
+  config StreamConfig @relation(fields: [configId], references: [id])
+
+  @@index([configId])
+  @@map("stream_sessions")
+}
+
+// ============================================================
+// SERVER/HOSTING
+// ============================================================
+
+model HostingInstance {
+  id          String   @id @default(uuid())
+  name        String
+  type        String
+  provider    String
+  status      String   @default("provisioning")
+  ipAddress   String?
+  specs       Json?
+  config      Json?
+  ownerId     String?
+  expiresAt   DateTime?
+  metadata    Json?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([type])
+  @@index([status])
+  @@map("hosting_instances")
+}
+
+// ============================================================
+// AI BRAIN
+// ============================================================
+
+model BrainMemory {
+  id        String   @id @default(uuid())
+  category  String
+  key       String
+  value     String   @db.LongText
+  weight    Float    @default(1.0)
+  accessCount Int    @default(0)
+  lastAccessedAt DateTime?
+  metadata  Json?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([category, key])
+  @@index([category])
+  @@map("brain_memories")
+}
+
+model BrainPattern {
+  id          String   @id @default(uuid())
+  inputHash   String
+  input       String   @db.Text
+  output      String   @db.Text
+  context     String?
+  confidence  Float    @default(0.5)
+  usageCount  Int      @default(0)
+  feedback    Float    @default(0)
+  metadata    Json?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([inputHash])
+  @@index([context])
+  @@map("brain_patterns")
+}
+
+model BrainInteraction {
+  id        String   @id @default(uuid())
+  userId    String?
+  input     String   @db.Text
+  output    String   @db.Text
+  context   String?
+  rating    Int?
+  metadata  Json?
+  createdAt DateTime @default(now())
+
+  user User? @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+  @@index([context])
+  @@map("brain_interactions")
+}
+
+model BrainTrainingData {
+  id        String   @id @default(uuid())
+  category  String
+  input     String   @db.Text
+  output    String   @db.Text
+  weight    Float    @default(1.0)
+  validated Boolean  @default(false)
+  metadata  Json?
+  createdAt DateTime @default(now())
+
+  @@index([category])
+  @@map("brain_training_data")
+}
+
+// ============================================================
+// API MANAGEMENT
+// ============================================================
+
+model ApiEndpoint {
+  id          String   @id @default(uuid())
+  path        String
+  method      String
+  version     String   @default("v1")
+  description String?  @db.Text
+  isPublic    Boolean  @default(false)
+  isDeprecated Boolean @default(false)
+  rateLimit   Int?
+  metadata    Json?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@unique([path, method, version])
+  @@map("api_endpoints")
+}
+
+// ============================================================
+// EVENTS (Event-Driven System)
+// ============================================================
+
+model EventLog {
+  id        String   @id @default(uuid())
+  type      String
+  source    String
+  data      Json
+  status    String   @default("pending")
+  processedAt DateTime?
+  error     String?  @db.Text
+  retries   Int      @default(0)
+  createdAt DateTime @default(now())
+
+  @@index([type])
+  @@index([source])
+  @@index([status])
+  @@index([createdAt])
+  @@map("event_logs")
+}
