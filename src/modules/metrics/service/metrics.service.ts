@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { Prisma } from '@prisma/client';
 import { prisma } from '../../../core/database';
 import { eventBus } from '../../../core/events';
@@ -12,7 +11,7 @@ const log = new ModuleLogger('MetricsService');
 
 export class MetricsService {
   async record(data: { name: string; value: number; unit?: string; tags?: object; source?: string }) {
-    return prisma.metric.create({ data: { name: data.name, value: data.value, unit: data.unit || null, tags: data.tags || null, source: data.source || 'system' } });
+    return prisma.metric.create({ data: { name: data.name, value: data.value, unit: data.unit || null, tags: data.tags || undefined, source: data.source || 'system' } });
   }
 
   async getMetrics(params: PaginationParams, filters?: { name?: string; source?: string; startDate?: Date; endDate?: Date }) {
@@ -46,7 +45,7 @@ export class MetricsService {
   }
 
   async recordBatch(metrics: Array<{ name: string; value: number; unit?: string; tags?: object; source?: string }>) {
-    const data = metrics.map(m => ({ name: m.name, value: m.value, unit: m.unit || null, tags: m.tags || null, source: m.source || 'system' }));
+    const data = metrics.map(m => ({ name: m.name, value: m.value, unit: m.unit || null, tags: m.tags || undefined, source: m.source || 'system' }));
     await prisma.metric.createMany({ data });
     return { recorded: data.length };
   }

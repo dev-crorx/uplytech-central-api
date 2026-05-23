@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { Prisma } from '@prisma/client';
 import { prisma } from '../../../core/database';
 import { eventBus } from '../../../core/events';
@@ -16,7 +15,7 @@ export class EmailService {
     const where: Prisma.EmailWhereInput = { recipientId: userId };
     const [data, total] = await Promise.all([
       prisma.email.findMany({ where, skip: (params.page - 1) * params.limit, take: params.limit, orderBy: { sentAt: 'desc' },
-        include: { sender: { select: { id: true, username: true, displayName: true, avatar: true } } } }),
+        include: { user: { select: { id: true, username: true, displayName: true, avatar: true } } } }),
       prisma.email.count({ where }),
     ]);
     return buildPaginatedResponse(data, total, params);
@@ -26,7 +25,7 @@ export class EmailService {
     const where: Prisma.EmailWhereInput = { senderId: userId };
     const [data, total] = await Promise.all([
       prisma.email.findMany({ where, skip: (params.page - 1) * params.limit, take: params.limit, orderBy: { sentAt: 'desc' },
-        include: { recipient: { select: { id: true, username: true, displayName: true } } } }),
+        include: { user: { select: { id: true, username: true, displayName: true } } } }),
       prisma.email.count({ where }),
     ]);
     return buildPaginatedResponse(data, total, params);
@@ -34,7 +33,7 @@ export class EmailService {
 
   async findById(id: string, userId: string) {
     const email = await prisma.email.findUnique({ where: { id },
-      include: { sender: { select: { id: true, username: true, displayName: true, avatar: true } }, recipient: { select: { id: true, username: true, displayName: true, avatar: true } } } });
+      include: { user: { select: { id: true, username: true, displayName: true, avatar: true } } } });
     if (!email) throw new NotFoundError('Email');
     if (email.senderId !== userId && email.recipientId !== userId) throw new BadRequestError('Not authorized');
     if (email.recipientId === userId && !email.isRead) {
@@ -47,8 +46,9 @@ export class EmailService {
     const recipient = await prisma.user.findFirst({ where: { OR: [{ email: data.to }, { id: data.to }, { username: data.to }] } });
     if (!recipient) throw new NotFoundError('Recipient');
     const email = await prisma.email.create({
-      data: { senderId: userId, recipientId: recipient.id, subject: data.subject, body: data.body, html: data.html || null,
-        isInternal: data.isInternal !== false, sentAt: new Date() },
+      data: { userId, direction: 'OUTGOING', fromAddress: 'internal', toAddress: recipient.email,
+        subject: data.subject, body: data.body, senderId: userId, recipientId: recipient.id,
+        isInternal: data.isInternal !== false, sentAt: new Date(), status: 'SENT' },
     });
     await eventBus.emit('email.sent', { type: 'email.sent', source: 'email-service', data: { id: email.id, to: recipient.id }, userId });
     log.info('Email sent', { id: email.id, from: userId, to: recipient.id });
@@ -57,8 +57,9 @@ export class EmailService {
 
   async sendExternal(data: { to: string; subject: string; body: string; html?: string; templateId?: string }, userId: string) {
     const email = await prisma.email.create({
-      data: { senderId: userId, recipientId: null as unknown as string, subject: data.subject, body: data.body, html: data.html || null,
-        externalRecipient: data.to, isInternal: false, sentAt: new Date() },
+      data: { userId, direction: 'OUTGOING', fromAddress: 'noreply@uplytech.com', toAddress: data.to,
+        subject: data.subject, body: data.body, senderId: userId,
+        externalRecipient: data.to, isInternal: false, sentAt: new Date(), status: 'SENT' },
     });
     await eventBus.emit('email.external_sent', { type: 'email.external_sent', source: 'email-service', data: { id: email.id, to: data.to }, userId });
     log.info('External email queued', { to: data.to });
@@ -81,7 +82,7 @@ export class EmailService {
   async markAsUnread(id: string, userId: string) {
     const email = await prisma.email.findUnique({ where: { id } });
     if (!email || email.recipientId !== userId) throw new NotFoundError('Email');
-    await prisma.email.update({ where: { id }, data: { isRead: false, readAt: null } });
+    await prisma.email.update({ where: { id }, data: { isRead: false, readAt: undefined } });
   }
 
   async getUnreadCount(userId: string) {
@@ -93,7 +94,7 @@ export class EmailService {
   }
 
   async createTemplate(data: { name: string; subject: string; body: string; html?: string }, userId: string) {
-    const tmpl = await prisma.emailTemplate.create({ data: { name: data.name, subject: data.subject, body: data.body, html: data.html || null } });
+    const tmpl = await prisma.emailTemplate.create({ data: { name: data.name, subject: data.subject, body: data.body, html: data.html || undefined } });
     await createAuditEntry(userId, 'EMAIL_TEMPLATE_CREATED', 'email', tmpl.id);
     return tmpl;
   }

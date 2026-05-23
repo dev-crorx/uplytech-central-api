@@ -1,5 +1,4 @@
-// @ts-nocheck
-import { Prisma } from '@prisma/client';
+import { Prisma, LogLevel } from '@prisma/client';
 import { prisma } from '../../../core/database';
 import { eventBus } from '../../../core/events';
 import { ModuleLogger } from '../../../core/logger';
@@ -13,7 +12,7 @@ const log = new ModuleLogger('LogsService');
 export class LogsService {
   async getLogs(params: PaginationParams, filters?: { level?: string; source?: string; startDate?: Date; endDate?: Date; search?: string }) {
     const where: Prisma.LogEntryWhereInput = {};
-    if (filters?.level) where.level = filters.level;
+    if (filters?.level) where.level = filters.level as LogLevel;
     if (filters?.source) where.source = filters.source;
     if (filters?.search) where.message = { contains: filters.search };
     if (filters?.startDate || filters?.endDate) { where.timestamp = {}; if (filters.startDate) where.timestamp.gte = filters.startDate; if (filters.endDate) where.timestamp.lte = filters.endDate; }
@@ -25,8 +24,8 @@ export class LogsService {
   }
 
   async create(data: { level: string; message: string; source: string; metadata?: object; stackTrace?: string; userId?: string }) {
-    return prisma.logEntry.create({ data: { level: data.level, message: data.message, source: data.source,
-      metadata: data.metadata || null, stackTrace: data.stackTrace || null, userId: data.userId || null, timestamp: new Date() } });
+    return prisma.logEntry.create({ data: { level: data.level as LogLevel, message: data.message, source: data.source,
+      metadata: data.metadata || undefined, stackTrace: data.stackTrace || undefined, userId: data.userId || null, timestamp: new Date() } });
   }
 
   async getLevels() {
@@ -50,7 +49,7 @@ export class LogsService {
     const since = new Date(Date.now() - hours * 60 * 60 * 1000);
     const [total, errors] = await Promise.all([
       prisma.logEntry.count({ where: { timestamp: { gte: since } } }),
-      prisma.logEntry.count({ where: { timestamp: { gte: since }, level: 'ERROR' } }),
+      prisma.logEntry.count({ where: { timestamp: { gte: since }, level: 'ERROR' as LogLevel } }),
     ]);
     return { total, errors, rate: total > 0 ? (errors / total) * 100 : 0, hours };
   }

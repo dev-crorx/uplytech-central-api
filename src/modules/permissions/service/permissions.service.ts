@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { Prisma } from '@prisma/client';
 import { prisma } from '../../../core/database';
 import { eventBus } from '../../../core/events';
@@ -31,28 +30,27 @@ export class PermissionsService {
   async findById(id: string) {
     const perm = await prisma.permission.findUnique({
       where: { id },
-      include: { roles: { include: { role: { select: { id: true, name: true } } } } },
+      include: { rolePermissions: { include: { role: { select: { id: true, name: true } } } } },
     });
     if (!perm) throw new NotFoundError('Permission');
     return perm;
   }
 
-  async create(data: { name: string; description?: string; resource: string; action: string }, userId: string) {
+  async create(data: { description?: string; resource: string; action: string }, userId: string) {
     const perm = await prisma.permission.create({ data: {
-      name: data.name,
       description: data.description || null,
       resource: data.resource,
       action: data.action,
     }});
     await createAuditEntry(userId, 'PERMISSION_CREATED', 'permission', perm.id);
-    log.info('Permission created', { id: perm.id, name: perm.name });
+    log.info('Permission created', { id: perm.id, resource: perm.resource, action: perm.action });
     return perm;
   }
 
-  async update(id: string, data: { name?: string; description?: string }, userId: string) {
+  async update(id: string, data: { description?: string }, userId: string) {
     const perm = await prisma.permission.findUnique({ where: { id } });
     if (!perm) throw new NotFoundError('Permission');
-    const updated = await prisma.permission.update({ where: { id }, data });
+    const updated = await prisma.permission.update({ where: { id }, data: { description: data.description } });
     await createAuditEntry(userId, 'PERMISSION_UPDATED', 'permission', id);
     return updated;
   }
@@ -69,10 +67,10 @@ export class PermissionsService {
   async checkPermission(userId: string, resource: string, action: string): Promise<boolean> {
     const userRoles = await prisma.userRole.findMany({
       where: { userId },
-      include: { role: { include: { permissions: { include: { permission: true } } } } },
+      include: { role: { include: { rolePermissions: { include: { permission: true } } } } },
     });
     for (const ur of userRoles) {
-      for (const rp of ur.role.permissions) {
+      for (const rp of ur.role.rolePermissions) {
         if ((rp.permission.resource === resource || rp.permission.resource === '*') &&
             (rp.permission.action === action || rp.permission.action === '*')) {
           return true;

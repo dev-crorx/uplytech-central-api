@@ -1,5 +1,4 @@
-// @ts-nocheck
-import { Prisma } from '@prisma/client';
+import { Prisma, LicenseStatus, LicenseType } from '@prisma/client';
 import { prisma } from '../../../core/database';
 import { eventBus } from '../../../core/events';
 import { ModuleLogger } from '../../../core/logger';
@@ -14,7 +13,7 @@ const log = new ModuleLogger('LicensesService');
 export class LicensesService {
   async findAll(params: PaginationParams, filters?: { status?: string; productId?: string }) {
     const where: Prisma.LicenseWhereInput = {};
-    if (filters?.status) where.status = filters.status;
+    if (filters?.status) where.status = filters.status as LicenseStatus;
     if (filters?.productId) where.productId = filters.productId;
     const [data, total] = await Promise.all([
       prisma.license.findMany({ where, skip: (params.page - 1) * params.limit, take: params.limit, orderBy: { createdAt: 'desc' },
@@ -34,8 +33,8 @@ export class LicensesService {
   async generate(data: { productId: string; userId: string; type: string; maxActivations?: number; expiresAt?: string }, adminId: string) {
     const key = this.generateLicenseKey();
     const license = await prisma.license.create({
-      data: { key, productId: data.productId, userId: data.userId, type: data.type, status: 'ACTIVE',
-        maxActivations: data.maxActivations || 1, currentActivations: 0,
+      data: { key, productId: data.productId, userId: data.userId, type: data.type as LicenseType, status: 'ACTIVE' as LicenseStatus as LicenseStatus,
+        activations: data.maxActivations || 1, currentActivations: 0,
         expiresAt: data.expiresAt ? new Date(data.expiresAt) : null },
     });
     await eventBus.emit('licenses.generated', { type: 'licenses.generated', source: 'licenses-service', data: { id: license.id }, userId: adminId });
@@ -49,7 +48,7 @@ export class LicensesService {
     if (!license) return { valid: false, reason: 'License key not found' };
     if (license.status !== 'ACTIVE') return { valid: false, reason: 'License is ' + license.status.toLowerCase() };
     if (license.expiresAt && new Date() > license.expiresAt) return { valid: false, reason: 'License has expired' };
-    if (license.maxActivations && license.currentActivations >= license.maxActivations) return { valid: false, reason: 'Maximum activations reached' };
+    if (license.activations && license.currentActivations >= license.activations) return { valid: false, reason: 'Maximum activations reached' };
     return { valid: true, license: { id: license.id, type: license.type, product: license.product } };
   }
 
@@ -57,20 +56,20 @@ export class LicensesService {
     const license = await prisma.license.findFirst({ where: { key } });
     if (!license) throw new NotFoundError('License');
     if (license.status !== 'ACTIVE') throw new BadRequestError('License is not active');
-    if (license.maxActivations && license.currentActivations >= license.maxActivations) throw new BadRequestError('Maximum activations reached');
-    await prisma.license.update({ where: { id: license.id }, data: { currentActivations: { increment: 1 }, lastActivatedAt: new Date() } });
+    if (license.activations && license.currentActivations >= license.activations) throw new BadRequestError('Maximum activations reached');
+    await prisma.license.update({ where: { id: license.id }, data: { currentActivations: { increment: 1 } } });
     await createAuditEntry(userId, 'LICENSE_ACTIVATED', 'license', license.id, { deviceId } as object);
     log.info('License activated', { key, deviceId });
     return { activated: true };
   }
 
   async deactivate(id: string, adminId: string) {
-    await prisma.license.update({ where: { id }, data: { status: 'INACTIVE' } });
+    await prisma.license.update({ where: { id }, data: { status: 'SUSPENDED' as LicenseStatus } });
     await createAuditEntry(adminId, 'LICENSE_DEACTIVATED', 'license', id);
   }
 
   async revoke(id: string, reason: string, adminId: string) {
-    await prisma.license.update({ where: { id }, data: { status: 'REVOKED' } });
+    await prisma.license.update({ where: { id }, data: { status: 'REVOKED' as LicenseStatus as LicenseStatus } });
     await createAuditEntry(adminId, 'LICENSE_REVOKED', 'license', id, { reason } as object);
     log.warn('License revoked', { id, reason });
   }
@@ -78,7 +77,7 @@ export class LicensesService {
   async renew(id: string, newExpiryDate: string, adminId: string) {
     const license = await prisma.license.findUnique({ where: { id } });
     if (!license) throw new NotFoundError('License');
-    await prisma.license.update({ where: { id }, data: { expiresAt: new Date(newExpiryDate), status: 'ACTIVE' } });
+    await prisma.license.update({ where: { id }, data: { expiresAt: new Date(newExpiryDate), status: 'ACTIVE' as LicenseStatus as LicenseStatus } });
     await createAuditEntry(adminId, 'LICENSE_RENEWED', 'license', id, { newExpiryDate } as object);
   }
 

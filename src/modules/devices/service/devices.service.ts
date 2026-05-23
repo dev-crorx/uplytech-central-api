@@ -1,5 +1,4 @@
-// @ts-nocheck
-import { Prisma } from '@prisma/client';
+import { Prisma, DeviceType, DeviceStatus } from '@prisma/client';
 import { prisma } from '../../../core/database';
 import { eventBus } from '../../../core/events';
 import { ModuleLogger } from '../../../core/logger';
@@ -13,8 +12,8 @@ const log = new ModuleLogger('DevicesService');
 export class DevicesService {
   async findAll(params: PaginationParams, filters?: { type?: string; status?: string; userId?: string }) {
     const where: Prisma.DeviceWhereInput = {};
-    if (filters?.type) where.type = filters.type;
-    if (filters?.status) where.status = filters.status;
+    if (filters?.type) where.type = filters.type as DeviceType;
+    if (filters?.status) where.status = filters.status as DeviceStatus;
     if (filters?.userId) where.userId = filters.userId;
     const [data, total] = await Promise.all([
       prisma.device.findMany({ where, skip: (params.page - 1) * params.limit, take: params.limit, orderBy: { lastSeen: 'desc' },
@@ -32,22 +31,22 @@ export class DevicesService {
 
   async register(data: { name: string; type: string; hostname?: string; os?: string; ip?: string; macAddress?: string; metadata?: object }, userId: string) {
     const device = await prisma.device.create({
-      data: { name: data.name, type: data.type, hostname: data.hostname || null, os: data.os || null,
-        ip: data.ip || null, macAddress: data.macAddress || null, metadata: data.metadata || null,
-        userId, status: 'ONLINE', lastSeen: new Date() },
+      data: { name: data.name, type: data.type as DeviceType, hostname: data.hostname || null, os: data.os || null,
+        ip: data.ip || null, macAddress: data.macAddress || null, metadata: data.metadata || undefined,
+        userId, status: 'ONLINE' as DeviceStatus, lastSeen: new Date() },
     });
-    await eventBus.emit('devices.registered', { type: 'devices.registered', source: 'devices-service', data: { id: device.id, type: data.type }, userId });
+    await eventBus.emit('devices.registered', { type: 'devices.registered', source: 'devices-service', data: { id: device.id, type: data.type as DeviceType }, userId });
     await createAuditEntry(userId, 'DEVICE_REGISTERED', 'device', device.id);
-    log.info('Device registered', { id: device.id, name: data.name, type: data.type });
+    log.info('Device registered', { id: device.id, name: data.name, type: data.type as DeviceType });
     return device;
   }
 
   async heartbeat(id: string, data?: { ip?: string; metadata?: object }) {
     const device = await prisma.device.findUnique({ where: { id } });
     if (!device) throw new NotFoundError('Device');
-    const updateData: Prisma.DeviceUpdateInput = { lastSeen: new Date(), status: 'ONLINE' };
-    if (data?.ip) updateData.ip = data.ip;
-    if (data?.metadata) updateData.metadata = data.metadata as object;
+    const updateData: Prisma.DeviceUpdateInput = { lastSeen: new Date(), status: 'ONLINE' as DeviceStatus };
+    if (data?.ip) updateData.ip = data.ip as string;
+    if (data?.metadata) updateData.metadata = data.metadata as Prisma.InputJsonValue;
     return prisma.device.update({ where: { id }, data: updateData });
   }
 
@@ -72,7 +71,7 @@ export class DevicesService {
   }
 
   async setStatus(id: string, status: string, userId: string) {
-    await prisma.device.update({ where: { id }, data: { status } });
+    await prisma.device.update({ where: { id }, data: { status: status as DeviceStatus } });
     await createAuditEntry(userId, 'DEVICE_STATUS_CHANGED', 'device', id, { status } as object);
   }
 }

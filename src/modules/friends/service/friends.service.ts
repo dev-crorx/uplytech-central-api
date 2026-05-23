@@ -1,4 +1,4 @@
-// @ts-nocheck
+import { FriendRequestStatus } from '@prisma/client';
 import { prisma } from '../../../core/database';
 import { eventBus } from '../../../core/events';
 import { ModuleLogger } from '../../../core/logger';
@@ -40,7 +40,7 @@ export class FriendsService {
     if (alreadyFriends) throw new BadRequestError('Already friends');
 
     const request = await prisma.friendRequest.create({
-      data: { senderId, receiverId, status: 'PENDING' },
+      data: { senderId, receiverId, status: 'PENDING' as FriendRequestStatus },
       include: { sender: { select: { id: true, username: true, displayName: true, avatar: true } } },
     });
 
@@ -101,7 +101,7 @@ export class FriendsService {
   }
 
   async getPendingRequests(userId: string, params: PaginationParams) {
-    const where = { receiverId: userId, status: 'PENDING' };
+    const where = { receiverId: userId, status: 'PENDING' as FriendRequestStatus };
     const [data, total] = await Promise.all([
       prisma.friendRequest.findMany({
         where,
@@ -116,7 +116,7 @@ export class FriendsService {
   }
 
   async getSentRequests(userId: string, params: PaginationParams) {
-    const where = { senderId: userId, status: 'PENDING' };
+    const where = { senderId: userId, status: 'PENDING' as FriendRequestStatus };
     const [data, total] = await Promise.all([
       prisma.friendRequest.findMany({
         where,

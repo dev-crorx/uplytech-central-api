@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { Prisma } from '@prisma/client';
 import { prisma } from '../../../core/database';
 import { eventBus } from '../../../core/events';
@@ -30,8 +29,9 @@ export class GamesService {
 
   async create(data: { name: string; description?: string; genre?: string; coverImage?: string; minPlayers?: number; maxPlayers?: number; isRanked?: boolean }, userId: string) {
     const game = await prisma.game.create({
-      data: { name: data.name, description: data.description || null, genre: data.genre || null, coverImage: data.coverImage || null,
-        minPlayers: data.minPlayers || 1, maxPlayers: data.maxPlayers || 100, isRanked: data.isRanked || false, status: 'ACTIVE' },
+      data: { name: data.name, slug: data.name.toLowerCase().replace(/\s+/g, '-') + '-' + Date.now(),
+        description: data.description || null, genre: data.genre || null, coverImage: data.coverImage || null,
+        minPlayers: data.minPlayers || 1, maxPlayers: data.maxPlayers || 100, isRanked: data.isRanked || false, status: 'active' },
     });
     await eventBus.emit('games.created', { type: 'games.created', source: 'games-service', data: { id: game.id }, userId });
     await createAuditEntry(userId, 'GAME_CREATED', 'game', game.id);

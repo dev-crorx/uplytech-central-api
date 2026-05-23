@@ -79,6 +79,7 @@ model User {
   storageSharedWith  StorageShare[]      @relation("StorageSharedWith")
   userStreams         Stream[]            @relation("UserStreams")
   streamingAccounts  StreamingAccount[]  @relation("UserStreamingAccounts")
+  wikiRevisions      WikiRevision[]      @relation("WikiRevisionAuthor")
 
   @@index([email])
   @@index([username])
@@ -297,6 +298,8 @@ model Group {
   updatedAt   DateTime @updatedAt
 
   members GroupMember[]
+  ownerId     String?
+
 
   @@map("groups")
 }
@@ -430,7 +433,7 @@ model BlogPost {
   coverImage  String?
   status      ContentStatus @default(DRAFT)
   categoryId  String?
-  tags        Json?
+  tags        String?     @db.Text
   publishedAt DateTime?
   metadata    Json?
   viewCount   Int          @default(0)
@@ -441,6 +444,8 @@ model BlogPost {
   category  Category? @relation(fields: [categoryId], references: [id])
   comments  Comment[]
   reactions Reaction[]
+  isFeatured  Boolean     @default(false)
+
 
   @@index([authorId])
   @@index([slug])
@@ -567,6 +572,11 @@ model TicketMessage {
 
   ticket Ticket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
   author User   @relation(fields: [authorId], references: [id])
+  userId      String?
+  isStaff     Boolean     @default(false)
+  senderId    String?
+
+
 
   @@index([ticketId])
   @@map("ticket_messages")
@@ -665,6 +675,9 @@ model Product {
   licenses      License[]
   subscriptions Subscription[]
   downloads     Download[]
+  sku         String?     @unique
+  stock       Int         @default(0)
+
 
   @@index([slug])
   @@index([status])
@@ -707,6 +720,8 @@ model License {
 
   user    User    @relation(fields: [userId], references: [id])
   product Product @relation(fields: [productId], references: [id])
+  currentActivations Int   @default(0)
+
 
   @@index([userId])
   @@index([productId])
@@ -752,6 +767,10 @@ model Device {
   updatedAt    DateTime     @updatedAt
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  ip          String?
+  lastSeen    DateTime?
+
+
 
   @@index([userId])
   @@index([fingerprint])
@@ -797,6 +816,10 @@ model AnalyticsEvent {
   timestamp    DateTime @default(now())
 
   user User? @relation(fields: [userId], references: [id])
+  createdAt   DateTime    @default(now())
+  ip          String?
+
+
 
   @@index([event])
   @@index([userId])
@@ -813,6 +836,8 @@ model Metric {
   tags      Json?
   source    String?
   timestamp DateTime @default(now())
+  createdAt   DateTime    @default(now())
+
 
   @@index([name])
   @@index([timestamp])
@@ -832,6 +857,9 @@ model LogEntry {
   context   Json?
   stackTrace String? @db.Text
   timestamp DateTime @default(now())
+  userId      String?
+  metadata    Json?
+
 
   @@index([level])
   @@index([source])
@@ -893,6 +921,13 @@ model Email {
   updatedAt   DateTime    @updatedAt
 
   user User @relation(fields: [userId], references: [id])
+  senderId     String?
+  recipientId  String?
+  isRead       Boolean     @default(false)
+  isInternal   Boolean     @default(true)
+  externalRecipient String?
+  html         String?     @db.LongText
+
 
   @@index([userId])
   @@index([direction])
@@ -931,6 +966,8 @@ model Notification {
   createdAt DateTime           @default(now())
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  isRead      Boolean     @default(false)
+
 
   @@index([userId])
   @@index([type])
@@ -962,6 +999,10 @@ model Alert {
   updatedAt   DateTime    @updatedAt
 
   user User? @relation(fields: [userId], references: [id])
+  status      String      @default("ACTIVE")
+  resolution  String?     @db.Text
+
+
 
   @@index([userId])
   @@index([type])
@@ -998,6 +1039,9 @@ model ChatRoom {
 
   members  ChatRoomMember[]
   messages ChatMessage[]
+  isEncrypted Boolean     @default(false)
+  creatorId   String?
+
 
   @@map("chat_rooms")
 }
@@ -1020,6 +1064,8 @@ model ChatRoomMember {
 
   room ChatRoom @relation(fields: [roomId], references: [id], onDelete: Cascade)
   user User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  lastReadAt  DateTime?
+
 
   @@unique([roomId, userId])
   @@map("chat_room_members")
@@ -1048,6 +1094,8 @@ model ChatMessage {
   sender  User         @relation(fields: [senderId], references: [id])
   replyTo ChatMessage? @relation("MessageReplies", fields: [replyToId], references: [id])
   replies ChatMessage[] @relation("MessageReplies")
+  isDeleted   Boolean     @default(false)
+
 
   @@index([roomId])
   @@index([senderId])
@@ -1116,7 +1164,10 @@ model WikiRevision {
   changelog String?  @db.Text
   createdAt DateTime @default(now())
 
-  page WikiPage @relation(fields: [pageId], references: [id], onDelete: Cascade)
+  page   WikiPage @relation(fields: [pageId], references: [id], onDelete: Cascade)
+  author User     @relation("WikiRevisionAuthor", fields: [authorId], references: [id])
+  changeNote  String?     @db.Text
+
 
   @@index([pageId])
   @@map("wiki_revisions")
@@ -1196,6 +1247,11 @@ model Payment {
   updatedAt       DateTime      @updatedAt
 
   invoice Invoice? @relation(fields: [invoiceId], references: [id])
+  userId      String?
+  completedAt DateTime?
+  stripePaymentIntentId String?
+
+
 
   @@index([stripePaymentId])
   @@map("payments")
@@ -1330,6 +1386,8 @@ model Subscription {
 
   user    User    @relation(fields: [userId], references: [id])
   product Product @relation(fields: [productId], references: [id])
+  plan        String?
+
 
   @@index([userId])
   @@index([productId])
@@ -1363,6 +1421,12 @@ model Game {
   updatedAt   DateTime @updatedAt
 
   tournaments Tournament[]
+  isRanked    Boolean     @default(false)
+  maxPlayers  Int         @default(10)
+  playerStats Json?
+  minPlayers  Int         @default(2)
+
+
 
   @@map("games")
 }
@@ -1387,6 +1451,9 @@ model Tournament {
   game         Game                    @relation(fields: [gameId], references: [id])
   participants TournamentParticipant[]
   matches      TournamentMatch[]
+  maxParticipants Int     @default(32)
+  organizerId     String?
+
 
   @@index([gameId])
   @@map("tournaments")
@@ -1475,6 +1542,10 @@ model EconomyTransaction {
   createdAt   DateTime @default(now())
 
   account EconomyAccount @relation(fields: [accountId], references: [id])
+  fromAccountId String?
+  toAccountId   String?
+  status        String      @default("COMPLETED")
+
 
   @@index([accountId])
   @@index([type])
@@ -1492,6 +1563,8 @@ model EconomyCurrency {
   metadata     Json?
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
+  isActive    Boolean     @default(true)
+
 
   @@map("economy_currencies")
 }
@@ -1697,6 +1770,9 @@ model ContentScan {
   result       ScanResult @default(CLEAN)
   details      Json?
   scannedAt    DateTime   @default(now())
+  userId      String?
+  url         String?
+
 
   @@index([resourceType, resourceId])
   @@index([result])
@@ -1845,6 +1921,8 @@ model ForumCategory {
   parent   ForumCategory?  @relation("ForumCategoryHierarchy", fields: [parentId], references: [id])
   children ForumCategory[] @relation("ForumCategoryHierarchy")
   posts    ForumPost[]
+  sortOrder   Int         @default(0)
+
 
   @@map("forum_categories")
 }
@@ -1865,6 +1943,9 @@ model ForumPost {
   author   User           @relation(fields: [authorId], references: [id])
   category ForumCategory  @relation(fields: [categoryId], references: [id])
   replies  ForumReply[]
+  tags        String?     @db.Text
+  lastReplyAt DateTime?
+
 
   @@index([authorId])
   @@index([categoryId])
@@ -1949,6 +2030,15 @@ model HostingInstance {
   metadata    Json?
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
+  startedAt   DateTime?
+  stoppedAt   DateTime?
+  containerId String?
+  plan        String      @default("basic")
+  region      String      @default("eu-central-1")
+  userId      String?
+
+
+
 
   @@index([type])
   @@index([status])

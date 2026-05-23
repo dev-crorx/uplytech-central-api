@@ -1,5 +1,4 @@
-// @ts-nocheck
-import { Prisma } from '@prisma/client';
+import { Prisma, TournamentStatus, TournamentType } from '@prisma/client';
 import { prisma } from '../../../core/database';
 import { eventBus } from '../../../core/events';
 import { ModuleLogger } from '../../../core/logger';
@@ -13,7 +12,7 @@ const log = new ModuleLogger('TournamentsService');
 export class TournamentsService {
   async findAll(params: PaginationParams, filters?: { status?: string; gameId?: string }) {
     const where: Prisma.TournamentWhereInput = {};
-    if (filters?.status) where.status = filters.status;
+    if (filters?.status) where.status = filters.status as TournamentStatus;
     if (filters?.gameId) where.gameId = filters.gameId;
     const [data, total] = await Promise.all([
       prisma.tournament.findMany({ where, skip: (params.page - 1) * params.limit, take: params.limit, orderBy: { startDate: 'desc' },
@@ -33,10 +32,10 @@ export class TournamentsService {
 
   async create(data: { name: string; description?: string; gameId: string; maxParticipants: number; startDate: string; endDate?: string; prizePool?: string; format?: string }, userId: string) {
     const tournament = await prisma.tournament.create({
-      data: { name: data.name, description: data.description || null, gameId: data.gameId, maxParticipants: data.maxParticipants,
+      data: { name: data.name, description: data.description || null, gameId: data.gameId, maxPlayers: data.maxParticipants, maxParticipants: data.maxParticipants,
         startDate: new Date(data.startDate), endDate: data.endDate ? new Date(data.endDate) : null,
-        prizePool: data.prizePool || null, format: data.format || 'SINGLE_ELIMINATION',
-        status: 'REGISTRATION', organizerId: userId },
+        prizePool: data.prizePool ? { description: data.prizePool } : undefined, type: (data.format || 'SINGLE_ELIMINATION') as TournamentType, slug: data.name.toLowerCase().replace(/\s+/g, '-') + '-' + Date.now(),
+        status: 'REGISTRATION' as TournamentStatus, organizerId: userId },
     });
     await eventBus.emit('tournaments.created', { type: 'tournaments.created', source: 'tournaments-service', data: { id: tournament.id }, userId });
     await createAuditEntry(userId, 'TOURNAMENT_CREATED', 'tournament', tournament.id);
@@ -77,7 +76,7 @@ export class TournamentsService {
       matches.push({ tournamentId, round: 1, matchNumber: Math.floor(i / 2) + 1, player1Id: shuffled[i].userId, player2Id: shuffled[i + 1]?.userId || null, status: shuffled[i + 1] ? 'PENDING' : 'BYE' });
     }
     await prisma.tournamentMatch.createMany({ data: matches });
-    await prisma.tournament.update({ where: { id: tournamentId }, data: { status: 'IN_PROGRESS' } });
+    await prisma.tournament.update({ where: { id: tournamentId }, data: { status: 'IN_PROGRESS' as TournamentStatus } });
     await eventBus.emit('tournaments.started', { type: 'tournaments.started', source: 'tournaments-service', data: { tournamentId }, userId });
     await createAuditEntry(userId, 'TOURNAMENT_STARTED', 'tournament', tournamentId);
     log.info('Tournament started', { tournamentId });
@@ -86,7 +85,7 @@ export class TournamentsService {
   async reportMatchResult(matchId: string, winnerId: string, score: string, userId: string) {
     const match = await prisma.tournamentMatch.findUnique({ where: { id: matchId } });
     if (!match) throw new NotFoundError('Match');
-    await prisma.tournamentMatch.update({ where: { id: matchId }, data: { winnerId, score, status: 'COMPLETED' } });
+    await prisma.tournamentMatch.update({ where: { id: matchId }, data: { winnerId, score, status: 'COMPLETED' as TournamentStatus } });
     await createAuditEntry(userId, 'MATCH_RESULT_REPORTED', 'tournament_match', matchId, { winnerId, score } as object);
     return { matchId, winnerId, score };
   }
@@ -95,14 +94,14 @@ export class TournamentsService {
     const t = await prisma.tournament.findUnique({ where: { id: tournamentId } });
     if (!t) throw new NotFoundError('Tournament');
     if (t.organizerId !== userId) throw new BadRequestError('Only organizer can end');
-    await prisma.tournament.update({ where: { id: tournamentId }, data: { status: 'COMPLETED' } });
+    await prisma.tournament.update({ where: { id: tournamentId }, data: { status: 'COMPLETED' as TournamentStatus } });
     await eventBus.emit('tournaments.ended', { type: 'tournaments.ended', source: 'tournaments-service', data: { tournamentId }, userId });
     await createAuditEntry(userId, 'TOURNAMENT_ENDED', 'tournament', tournamentId);
   }
 
   async getBracket(tournamentId: string) {
     return prisma.tournamentMatch.findMany({ where: { tournamentId }, orderBy: [{ round: 'asc' }, { matchNumber: 'asc' }],
-      include: { player1: { select: { id: true, username: true, displayName: true } }, player2: { select: { id: true, username: true, displayName: true } }, winner: { select: { id: true, username: true, displayName: true } } } });
+    });
   }
 }
 

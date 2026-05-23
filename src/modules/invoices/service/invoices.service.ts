@@ -1,5 +1,4 @@
-// @ts-nocheck
-import { Prisma } from '@prisma/client';
+import { Prisma, InvoiceStatus } from '@prisma/client';
 import { prisma } from '../../../core/database';
 import { eventBus } from '../../../core/events';
 import { ModuleLogger } from '../../../core/logger';
@@ -13,7 +12,7 @@ const log = new ModuleLogger('InvoicesService');
 export class InvoicesService {
   async findAll(params: PaginationParams, filters?: { status?: string; userId?: string }) {
     const where: Prisma.InvoiceWhereInput = {};
-    if (filters?.status) where.status = filters.status;
+    if (filters?.status) where.status = filters.status as InvoiceStatus;
     if (filters?.userId) where.userId = filters.userId;
     const [data, total] = await Promise.all([
       prisma.invoice.findMany({ where, skip: (params.page - 1) * params.limit, take: params.limit, orderBy: { createdAt: 'desc' },
@@ -37,8 +36,8 @@ export class InvoicesService {
     const total = subtotal + taxAmount;
     const invoiceNumber = 'INV-' + Date.now().toString(36).toUpperCase();
     const invoice = await prisma.invoice.create({
-      data: { invoiceNumber, userId: data.userId, items: data.items as object, subtotal, taxRate, taxAmount, total,
-        currency: 'EUR', status: 'PENDING', dueDate: new Date(data.dueDate), notes: data.notes || null },
+      data: { number: invoiceNumber, userId: data.userId, items: data.items as object, subtotal, taxRate, taxAmount, total,
+        currency: 'EUR', status: 'PENDING' as InvoiceStatus, dueDate: new Date(data.dueDate), notes: data.notes || null },
     });
     await eventBus.emit('invoices.created', { type: 'invoices.created', source: 'invoices-service', data: { id: invoice.id, total }, userId: adminId });
     await createAuditEntry(adminId, 'INVOICE_CREATED', 'invoice', invoice.id, { total, userId: data.userId } as object);
@@ -50,17 +49,17 @@ export class InvoicesService {
     const invoice = await prisma.invoice.findUnique({ where: { id } });
     if (!invoice) throw new NotFoundError('Invoice');
     if (invoice.status === 'PAID') throw new BadRequestError('Invoice is already paid');
-    await prisma.invoice.update({ where: { id }, data: { status: 'PAID', paidAt: new Date() } });
+    await prisma.invoice.update({ where: { id }, data: { status: 'PAID' as InvoiceStatus as InvoiceStatus, paidAt: new Date() } });
     await createAuditEntry(userId, 'INVOICE_MARKED_PAID', 'invoice', id);
   }
 
   async markAsOverdue(id: string, userId: string) {
-    await prisma.invoice.update({ where: { id }, data: { status: 'OVERDUE' } });
+    await prisma.invoice.update({ where: { id }, data: { status: 'OVERDUE' as InvoiceStatus as InvoiceStatus } });
     await createAuditEntry(userId, 'INVOICE_MARKED_OVERDUE', 'invoice', id);
   }
 
   async cancel(id: string, userId: string) {
-    await prisma.invoice.update({ where: { id }, data: { status: 'CANCELLED' } });
+    await prisma.invoice.update({ where: { id }, data: { status: 'CANCELLED' as InvoiceStatus as InvoiceStatus } });
     await createAuditEntry(userId, 'INVOICE_CANCELLED', 'invoice', id);
   }
 
@@ -84,11 +83,11 @@ export class InvoicesService {
     if (startDate || endDate) { where.createdAt = {}; if (startDate) where.createdAt.gte = startDate; if (endDate) where.createdAt.lte = endDate; }
     const [total, paid, pending, overdue] = await Promise.all([
       prisma.invoice.count({ where }),
-      prisma.invoice.count({ where: { ...where, status: 'PAID' } }),
-      prisma.invoice.count({ where: { ...where, status: 'PENDING' } }),
-      prisma.invoice.count({ where: { ...where, status: 'OVERDUE' } }),
+      prisma.invoice.count({ where: { ...where, status: 'PAID' as InvoiceStatus as InvoiceStatus } }),
+      prisma.invoice.count({ where: { ...where, status: 'PENDING' as InvoiceStatus } }),
+      prisma.invoice.count({ where: { ...where, status: 'OVERDUE' as InvoiceStatus as InvoiceStatus } }),
     ]);
-    const paidInvoices = await prisma.invoice.findMany({ where: { ...where, status: 'PAID' }, select: { total: true } });
+    const paidInvoices = await prisma.invoice.findMany({ where: { ...where, status: 'PAID' as InvoiceStatus as InvoiceStatus }, select: { total: true } });
     const totalRevenue = paidInvoices.reduce((s, i) => s + Number(i.total), 0);
     return { total, paid, pending, overdue, totalRevenue };
   }

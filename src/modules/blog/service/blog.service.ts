@@ -1,5 +1,4 @@
-// @ts-nocheck
-import { Prisma } from '@prisma/client';
+import { Prisma, ContentStatus } from '@prisma/client';
 import { prisma } from '../../../core/database';
 import { eventBus } from '../../../core/events';
 import { ModuleLogger } from '../../../core/logger';
@@ -13,7 +12,7 @@ const log = new ModuleLogger('BlogService');
 export class BlogService {
   async findAll(params: PaginationParams, filters?: { status?: string; authorId?: string; categoryId?: string; tag?: string }) {
     const where: Prisma.BlogPostWhereInput = {};
-    if (filters?.status) where.status = filters.status;
+    if (filters?.status) where.status = filters.status as ContentStatus;
     if (filters?.authorId) where.authorId = filters.authorId;
     if (filters?.categoryId) where.categoryId = filters.categoryId;
     if (filters?.tag) where.tags = { contains: filters.tag };
@@ -46,8 +45,8 @@ export class BlogService {
     const finalSlug = existingSlug ? slug + '-' + Date.now() : slug;
     const post = await prisma.blogPost.create({
       data: { title: data.title, content: data.content, excerpt: data.excerpt || data.content.substring(0, 200), slug: finalSlug,
-        categoryId: data.categoryId || null, tags: data.tags || null, coverImage: data.coverImage || null,
-        status: data.status || 'DRAFT', authorId: userId, publishedAt: data.status === 'PUBLISHED' ? new Date() : null },
+        categoryId: data.categoryId || null, tags: data.tags || undefined, coverImage: data.coverImage || null,
+        status: (data.status || 'DRAFT') as ContentStatus, authorId: userId, publishedAt: data.status === 'PUBLISHED' ? new Date() : null },
     });
     await eventBus.emit('blog.created', { type: 'blog.created', source: 'blog-service', data: { id: post.id }, userId });
     await createAuditEntry(userId, 'BLOG_CREATED', 'blog', post.id);

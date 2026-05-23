@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { Prisma } from '@prisma/client';
 import { prisma } from '../../../core/database';
 import { eventBus } from '../../../core/events';
@@ -16,7 +15,7 @@ export class GroupsService {
     if (filters?.isPublic !== undefined) where.isPublic = filters.isPublic;
     const [data, total] = await Promise.all([
       prisma.group.findMany({ where, skip: (params.page - 1) * params.limit, take: params.limit, orderBy: { createdAt: 'desc' },
-        include: { owner: { select: { id: true, username: true, displayName: true } }, _count: { select: { members: true } } } }),
+        include: { _count: { select: { members: true } } } }),
       prisma.group.count({ where }),
     ]);
     return buildPaginatedResponse(data, total, params);
@@ -24,7 +23,7 @@ export class GroupsService {
 
   async findById(id: string) {
     const group = await prisma.group.findUnique({ where: { id },
-      include: { owner: { select: { id: true, username: true, displayName: true, avatar: true } },
+      include: {
         members: { include: { user: { select: { id: true, username: true, displayName: true, avatar: true } } } } } });
     if (!group) throw new NotFoundError('Group');
     return group;
@@ -32,7 +31,7 @@ export class GroupsService {
 
   async create(data: { name: string; description?: string; isPublic?: boolean }, userId: string) {
     const group = await prisma.group.create({
-      data: { name: data.name, description: data.description || null, isPublic: data.isPublic !== false, ownerId: userId },
+      data: { name: data.name, slug: data.name.toLowerCase().replace(/\s+/g, '-') + '-' + Date.now(), description: data.description || null, isPublic: data.isPublic !== false, ownerId: userId },
     });
     await prisma.groupMember.create({ data: { groupId: group.id, userId, role: 'OWNER' } });
     await eventBus.emit('groups.created', { type: 'groups.created', source: 'groups-service', data: { id: group.id }, userId });
@@ -86,7 +85,7 @@ export class GroupsService {
   async updateMemberRole(groupId: string, targetUserId: string, role: string, adminId: string) {
     const member = await prisma.groupMember.findUnique({ where: { groupId_userId: { groupId, userId: targetUserId } } });
     if (!member) throw new NotFoundError('Group member');
-    await prisma.groupMember.update({ where: { groupId_userId: { groupId, userId: targetUserId } }, data: { role } });
+    await prisma.groupMember.update({ where: { groupId_userId: { groupId, userId: targetUserId } }, data: { role: role as import('@prisma/client').GroupRole } });
     await createAuditEntry(adminId, 'GROUP_MEMBER_ROLE_CHANGED', 'group', groupId, { targetUserId, role } as object);
   }
 

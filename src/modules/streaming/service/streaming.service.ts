@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { Prisma } from '@prisma/client';
 import { prisma } from '../../../core/database';
 import { eventBus } from '../../../core/events';
@@ -34,7 +33,7 @@ export class StreamingService {
     const stream = await prisma.stream.create({
       data: { title: data.title, description: data.description || null, platforms: data.platforms.join(','),
         streamKey: data.streamKey || 'sk_' + Date.now() + '_' + Math.random().toString(36).substring(7),
-        obsConfig: data.obsConfig || null, userId, status: 'OFFLINE' },
+        obsConfig: data.obsConfig || undefined, userId, status: 'OFFLINE' },
     });
     await eventBus.emit('streaming.created', { type: 'streaming.created', source: 'streaming-service', data: { id: stream.id }, userId });
     await createAuditEntry(userId, 'STREAM_CREATED', 'streaming', stream.id);
@@ -92,7 +91,7 @@ export class StreamingService {
   async updateOBSConfig(id: string, config: object, userId: string) {
     const stream = await prisma.stream.findUnique({ where: { id } });
     if (!stream || stream.userId !== userId) throw new NotFoundError('Stream');
-    return prisma.stream.update({ where: { id }, data: { obsConfig: config as object } });
+    return prisma.stream.update({ where: { id }, data: { obsConfig: config as Prisma.InputJsonValue } });
   }
 
   async getMyStreams(userId: string) {

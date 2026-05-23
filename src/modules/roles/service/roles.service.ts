@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { Prisma } from '@prisma/client';
 import { prisma } from '../../../core/database';
 import { eventBus } from '../../../core/events';
@@ -18,8 +17,8 @@ export class RolesService {
         take: params.limit,
         orderBy: { [params.sortBy || 'createdAt']: params.sortOrder || 'desc' } as Prisma.RoleOrderByWithRelationInput,
         include: {
-          permissions: { include: { permission: { select: { id: true, name: true, resource: true, action: true } } } },
-          _count: { select: { users: true } },
+          rolePermissions: { include: { permission: { select: { id: true, resource: true, action: true } } } },
+          _count: { select: { userRoles: true } },
         },
       }),
       prisma.role.count(),
@@ -31,8 +30,8 @@ export class RolesService {
     const role = await prisma.role.findUnique({
       where: { id },
       include: {
-        permissions: { include: { permission: true } },
-        users: { include: { user: { select: { id: true, username: true, displayName: true, avatar: true } } } },
+        rolePermissions: { include: { permission: true } },
+        userRoles: { include: { user: { select: { id: true, username: true, displayName: true, avatar: true } } } },
       },
     });
     if (!role) throw new NotFoundError('Role');
@@ -44,7 +43,7 @@ export class RolesService {
     if (existing) throw new ConflictError('Role with this name already exists');
 
     const role = await prisma.role.create({
-      data: { name: data.name, description: data.description || null, isDefault: data.isDefault || false },
+      data: { name: data.name, displayName: data.name, description: data.description || null },
     });
 
     await eventBus.emit('roles.created', { type: 'roles.created', source: 'roles-service', data: { id: role.id, name: role.name }, userId });
@@ -68,7 +67,7 @@ export class RolesService {
       data: {
         ...(data.name && { name: data.name }),
         ...(data.description !== undefined && { description: data.description }),
-        ...(data.isDefault !== undefined && { isDefault: data.isDefault }),
+
       },
     });
 
@@ -140,7 +139,7 @@ export class RolesService {
   async getUserRoles(userId: string) {
     return prisma.userRole.findMany({
       where: { userId },
-      include: { role: { include: { permissions: { include: { permission: true } } } } },
+      include: { role: { include: { rolePermissions: { include: { permission: true } } } } },
     });
   }
 }

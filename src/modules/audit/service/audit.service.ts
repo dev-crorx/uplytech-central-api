@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { Prisma } from '@prisma/client';
 import { prisma } from '../../../core/database';
 import { eventBus } from '../../../core/events';
@@ -13,7 +12,7 @@ const log = new ModuleLogger('AuditService');
 export class AuditService {
   async findAll(params: PaginationParams) {
     const [data, total] = await Promise.all([
-      prisma.auditLog.findMany({ skip: (params.page - 1) * params.limit, take: params.limit, orderBy: { createdAt: 'desc' } }),
+      prisma.auditLog.findMany({ skip: (params.page - 1) * params.limit, take: params.limit, orderBy: { timestamp: 'desc' } }),
       prisma.auditLog.count(),
     ]);
     return buildPaginatedResponse(data, total, params);

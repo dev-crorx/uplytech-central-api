@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { Prisma } from '@prisma/client';
 import { prisma } from '../../../core/database';
 import { eventBus } from '../../../core/events';
@@ -16,7 +15,7 @@ export class TeamsService {
       prisma.team.findMany({
         skip: (params.page - 1) * params.limit, take: params.limit,
         orderBy: { createdAt: 'desc' },
-        include: { _count: { select: { members: true } }, owner: { select: { id: true, username: true, displayName: true, avatar: true } } },
+        include: { _count: { select: { members: true } } },
       }),
       prisma.team.count(),
     ]);
@@ -27,7 +26,6 @@ export class TeamsService {
     const team = await prisma.team.findUnique({
       where: { id },
       include: {
-        owner: { select: { id: true, username: true, displayName: true, avatar: true } },
         members: { include: { user: { select: { id: true, username: true, displayName: true, avatar: true } } } },
       },
     });
@@ -37,7 +35,7 @@ export class TeamsService {
 
   async create(data: { name: string; description?: string; avatar?: string }, userId: string) {
     const team = await prisma.team.create({
-      data: { name: data.name, description: data.description || null, avatar: data.avatar || null, ownerId: userId },
+      data: { name: data.name, slug: data.name.toLowerCase().replace(/\s+/g, '-') + '-' + Date.now(), description: data.description || null, avatar: data.avatar || null, ownerId: userId },
     });
     await prisma.teamMember.create({ data: { teamId: team.id, userId, role: 'OWNER' } });
     await eventBus.emit('teams.created', { type: 'teams.created', source: 'teams-service', data: { id: team.id }, userId });
@@ -71,7 +69,7 @@ export class TeamsService {
     if (!team) throw new NotFoundError('Team');
     const existing = await prisma.teamMember.findUnique({ where: { teamId_userId: { teamId, userId: targetUserId } } });
     if (existing) throw new BadRequestError('User is already a team member');
-    await prisma.teamMember.create({ data: { teamId, userId: targetUserId, role: role || 'MEMBER' } });
+    await prisma.teamMember.create({ data: { teamId, userId: targetUserId, role: (role || 'MEMBER') as import('@prisma/client').TeamRole } });
     await eventBus.emit('teams.member_added', { type: 'teams.member_added', source: 'teams-service', data: { teamId, targetUserId }, userId });
     await createAuditEntry(userId, 'TEAM_MEMBER_ADDED', 'team', teamId, { targetUserId } as object);
     log.info('Team member added', { teamId, targetUserId });
@@ -89,7 +87,7 @@ export class TeamsService {
   async updateMemberRole(teamId: string, targetUserId: string, role: string, userId: string) {
     const member = await prisma.teamMember.findUnique({ where: { teamId_userId: { teamId, userId: targetUserId } } });
     if (!member) throw new NotFoundError('Team member');
-    await prisma.teamMember.update({ where: { teamId_userId: { teamId, userId: targetUserId } }, data: { role } });
+    await prisma.teamMember.update({ where: { teamId_userId: { teamId, userId: targetUserId } }, data: { role: role as import('@prisma/client').TeamRole } });
     await createAuditEntry(userId, 'TEAM_MEMBER_ROLE_CHANGED', 'team', teamId, { targetUserId, role } as object);
   }
 

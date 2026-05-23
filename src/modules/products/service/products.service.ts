@@ -1,5 +1,4 @@
-// @ts-nocheck
-import { Prisma } from '@prisma/client';
+import { Prisma, ProductStatus, ProductType } from '@prisma/client';
 import { prisma } from '../../../core/database';
 import { eventBus } from '../../../core/events';
 import { ModuleLogger } from '../../../core/logger';
@@ -13,7 +12,7 @@ const log = new ModuleLogger('ProductsService');
 export class ProductsService {
   async findAll(params: PaginationParams, filters?: { status?: string; categoryId?: string; minPrice?: number; maxPrice?: number }) {
     const where: Prisma.ProductWhereInput = {};
-    if (filters?.status) where.status = filters.status;
+    if (filters?.status) where.status = filters.status as ProductStatus;
     if (filters?.categoryId) where.categoryId = filters.categoryId;
     if (filters?.minPrice || filters?.maxPrice) {
       where.price = {};
@@ -43,9 +42,12 @@ export class ProductsService {
     const existingSku = await prisma.product.findFirst({ where: { sku: data.sku } });
     if (existingSku) throw new BadRequestError('SKU already exists');
     const product = await prisma.product.create({
-      data: { name: data.name, description: data.description || null, sku: data.sku, price: data.price, currency: data.currency || 'EUR',
-        type: data.type, categoryId: data.categoryId || null, images: data.images || null, downloadUrl: data.downloadUrl || null,
-        version: data.version || '1.0.0', stock: data.stock ?? null, status: 'ACTIVE' },
+      data: {
+        name: data.name, slug: data.name.toLowerCase().replace(/\s+/g, '-') + '-' + Date.now(),
+        description: data.description || null, sku: data.sku, price: data.price, currency: data.currency || 'EUR',
+        type: data.type as ProductType, categoryId: data.categoryId || null,
+        stock: data.stock ?? 0, status: 'ACTIVE', creatorId: userId,
+      },
     });
     await eventBus.emit('products.created', { type: 'products.created', source: 'products-service', data: { id: product.id, sku: product.sku }, userId });
     await createAuditEntry(userId, 'PRODUCT_CREATED', 'product', product.id);
@@ -84,12 +86,12 @@ export class ProductsService {
   }
 
   async activate(id: string, userId: string) {
-    await prisma.product.update({ where: { id }, data: { status: 'ACTIVE' } });
+    await prisma.product.update({ where: { id }, data: { status: 'ACTIVE' as ProductStatus } });
     await createAuditEntry(userId, 'PRODUCT_ACTIVATED', 'product', id);
   }
 
   async deactivate(id: string, userId: string) {
-    await prisma.product.update({ where: { id }, data: { status: 'INACTIVE' } });
+    await prisma.product.update({ where: { id }, data: { status: 'INACTIVE' as ProductStatus } });
     await createAuditEntry(userId, 'PRODUCT_DEACTIVATED', 'product', id);
   }
 
@@ -101,7 +103,7 @@ export class ProductsService {
   }
 
   async search(query: string, params: PaginationParams) {
-    const where: Prisma.ProductWhereInput = { status: 'ACTIVE', OR: [{ name: { contains: query } }, { description: { contains: query } }, { sku: { contains: query } }] };
+    const where: Prisma.ProductWhereInput = { status: 'ACTIVE' as ProductStatus, OR: [{ name: { contains: query } }, { description: { contains: query } }, { sku: { contains: query } }] };
     const [data, total] = await Promise.all([
       prisma.product.findMany({ where, skip: (params.page - 1) * params.limit, take: params.limit, orderBy: { createdAt: 'desc' } }),
       prisma.product.count({ where }),
@@ -110,7 +112,7 @@ export class ProductsService {
   }
 
   async getLowStock(threshold: number) {
-    return prisma.product.findMany({ where: { stock: { lte: threshold, gt: 0 }, status: 'ACTIVE' }, orderBy: { stock: 'asc' } });
+    return prisma.product.findMany({ where: { stock: { lte: threshold, gt: 0 }, status: 'ACTIVE' as ProductStatus }, orderBy: { stock: 'asc' } });
   }
 }
 

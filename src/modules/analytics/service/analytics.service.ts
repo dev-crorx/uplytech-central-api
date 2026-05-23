@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { Prisma } from '@prisma/client';
 import { prisma } from '../../../core/database';
 import { eventBus } from '../../../core/events';
@@ -13,7 +12,7 @@ const log = new ModuleLogger('AnalyticsService');
 export class AnalyticsService {
   async trackEvent(data: { event: string; userId?: string; sessionId?: string; properties?: object; source?: string; ip?: string; userAgent?: string }) {
     return prisma.analyticsEvent.create({ data: { event: data.event, userId: data.userId || null, sessionId: data.sessionId || null,
-      properties: data.properties || null, source: data.source || 'web', ip: data.ip || null, userAgent: data.userAgent || null } });
+      properties: data.properties || undefined, source: data.source || 'web', ip: data.ip || null, userAgent: data.userAgent || null } });
   }
 
   async getEvents(params: PaginationParams, filters?: { event?: string; userId?: string; source?: string; startDate?: Date; endDate?: Date }) {

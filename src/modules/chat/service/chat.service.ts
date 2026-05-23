@@ -1,5 +1,4 @@
-// @ts-nocheck
-import { Prisma } from '@prisma/client';
+import { Prisma, ChatRoomType, ChatMessageType } from '@prisma/client';
 import { prisma } from '../../../core/database';
 import { eventBus } from '../../../core/events';
 import { ModuleLogger } from '../../../core/logger';
@@ -24,7 +23,7 @@ export class ChatService {
 
   async createRoom(data: { name: string; type: string; isEncrypted?: boolean }, userId: string) {
     const room = await prisma.chatRoom.create({
-      data: { name: data.name, type: data.type || 'GROUP', isEncrypted: data.isEncrypted || false, creatorId: userId },
+      data: { name: data.name, type: (data.type || 'GROUP') as ChatRoomType, isEncrypted: data.isEncrypted || false, creatorId: userId },
     });
     await prisma.chatRoomMember.create({ data: { roomId: room.id, userId, role: 'ADMIN' } });
     await eventBus.emit('chat.room_created', { type: 'chat.room_created', source: 'chat-service', data: { roomId: room.id }, userId });
@@ -38,7 +37,7 @@ export class ChatService {
       where: { type: 'DIRECT', AND: [{ members: { some: { userId } } }, { members: { some: { userId: targetUserId } } }] },
     });
     if (existing) return existing;
-    const room = await prisma.chatRoom.create({ data: { name: 'DM', type: 'DIRECT', creatorId: userId } });
+    const room = await prisma.chatRoom.create({ data: { name: 'DM', type: 'DIRECT' as ChatRoomType, creatorId: userId } });
     await prisma.chatRoomMember.createMany({ data: [{ roomId: room.id, userId, role: 'MEMBER' }, { roomId: room.id, userId: targetUserId, role: 'MEMBER' }] });
     return room;
   }
@@ -48,7 +47,7 @@ export class ChatService {
     if (!isMember) throw new BadRequestError('Not a member of this room');
     const [data, total] = await Promise.all([
       prisma.chatMessage.findMany({ where: { roomId }, skip: (params.page - 1) * params.limit, take: params.limit, orderBy: { createdAt: 'desc' },
-        include: { user: { select: { id: true, username: true, displayName: true, avatar: true } } } }),
+        include: { sender: { select: { id: true, username: true, displayName: true, avatar: true } } } }),
       prisma.chatMessage.count({ where: { roomId } }),
     ]);
     return buildPaginatedResponse(data, total, params);
@@ -66,8 +65,8 @@ export class ChatService {
       finalContent = iv.toString('hex') + ':' + cipher.update(content, 'utf8', 'hex') + cipher.final('hex');
     }
     const message = await prisma.chatMessage.create({
-      data: { roomId, userId, content: finalContent, type: type || 'TEXT' },
-      include: { user: { select: { id: true, username: true, displayName: true, avatar: true } } },
+      data: { roomId, senderId: userId, content: finalContent, type: (type || 'TEXT') as ChatMessageType },
+      include: { sender: { select: { id: true, username: true, displayName: true, avatar: true } } },
     });
     await prisma.chatRoom.update({ where: { id: roomId }, data: { updatedAt: new Date() } });
     await eventBus.emit('chat.message_sent', { type: 'chat.message_sent', source: 'chat-service', data: { roomId, messageId: message.id }, userId });
@@ -77,15 +76,15 @@ export class ChatService {
   async deleteMessage(messageId: string, userId: string) {
     const msg = await prisma.chatMessage.findUnique({ where: { id: messageId } });
     if (!msg) throw new NotFoundError('Message');
-    if (msg.userId !== userId) throw new BadRequestError('Can only delete your own messages');
+    if (msg.senderId !== userId) throw new BadRequestError('Can only delete your own messages');
     await prisma.chatMessage.update({ where: { id: messageId }, data: { isDeleted: true, content: '[deleted]' } });
   }
 
   async editMessage(messageId: string, userId: string, content: string) {
     const msg = await prisma.chatMessage.findUnique({ where: { id: messageId } });
     if (!msg) throw new NotFoundError('Message');
-    if (msg.userId !== userId) throw new BadRequestError('Can only edit your own messages');
-    return prisma.chatMessage.update({ where: { id: messageId }, data: { content, isEdited: true } });
+    if (msg.senderId !== userId) throw new BadRequestError('Can only edit your own messages');
+    return prisma.chatMessage.update({ where: { id: messageId }, data: { content } });
   }
 
   async addMember(roomId: string, targetUserId: string, userId: string) {
@@ -116,7 +115,7 @@ export class ChatService {
     const where: Prisma.ChatMessageWhereInput = { roomId, content: { contains: query }, isDeleted: false };
     const [data, total] = await Promise.all([
       prisma.chatMessage.findMany({ where, skip: (params.page - 1) * params.limit, take: params.limit, orderBy: { createdAt: 'desc' },
-        include: { user: { select: { id: true, username: true, displayName: true } } } }),
+        include: { sender: { select: { id: true, username: true, displayName: true } } } }),
       prisma.chatMessage.count({ where }),
     ]);
     return buildPaginatedResponse(data, total, params);
@@ -126,7 +125,7 @@ export class ChatService {
     const memberships = await prisma.chatRoomMember.findMany({ where: { userId }, select: { roomId: true, lastReadAt: true } });
     let total = 0;
     for (const m of memberships) {
-      const count = await prisma.chatMessage.count({ where: { roomId: m.roomId, createdAt: { gt: m.lastReadAt || new Date(0) }, userId: { not: userId } } });
+      const count = await prisma.chatMessage.count({ where: { roomId: m.roomId, createdAt: { gt: m.lastReadAt || new Date(0) }, senderId: { not: userId } } });
       total += count;
     }
     return { unreadCount: total };

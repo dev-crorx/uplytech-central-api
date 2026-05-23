@@ -1,5 +1,4 @@
-// @ts-nocheck
-import { Prisma } from '@prisma/client';
+import { Prisma, NotificationChannel } from '@prisma/client';
 import { prisma } from '../../../core/database';
 import { eventBus } from '../../../core/events';
 import { ModuleLogger } from '../../../core/logger';
@@ -23,7 +22,7 @@ export class NotificationsService {
 
   async create(data: { userId: string; type: string; title: string; message: string; actionUrl?: string; metadata?: object }) {
     const notif = await prisma.notification.create({
-      data: { userId: data.userId, type: data.type, title: data.title, message: data.message, actionUrl: data.actionUrl || null, metadata: data.metadata || null },
+      data: { userId: data.userId, type: data.type, title: data.title, message: data.message, ...(data.metadata ? { data: data.metadata as Prisma.InputJsonValue } : {}) },
     });
     await eventBus.emit('notifications.created', { type: 'notifications.created', source: 'notifications-service', data: { id: notif.id, userId: data.userId } });
     return notif;

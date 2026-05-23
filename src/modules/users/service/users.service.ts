@@ -1,5 +1,4 @@
-// @ts-nocheck
-import { Prisma } from '@prisma/client';
+import { Prisma, UserStatus } from '@prisma/client';
 import argon2 from 'argon2';
 import { prisma } from '../../../core/database';
 import { eventBus } from '../../../core/events';
@@ -16,7 +15,7 @@ export class UsersService {
     const where: Prisma.UserWhereInput = {};
 
     if (filters?.status) {
-      where.status = filters.status;
+      where.status = filters.status as UserStatus;
     }
     if (filters?.search) {
       where.OR = [
@@ -96,9 +95,9 @@ export class UsersService {
         userRoles: { include: { role: { select: { name: true } } } },
         _count: {
           select: {
-            sentFriendRequests: true,
-            teamMemberships: true,
-            groupMemberships: true,
+            friendRequests: true,
+            teamMembers: true,
+            groupMembers: true,
           },
         },
       },
@@ -136,7 +135,7 @@ export class UsersService {
 
     await prisma.user.update({
       where: { id: targetId },
-      data: { status: 'BANNED' },
+      data: { status: 'BANNED' as UserStatus },
     });
 
     await prisma.session.deleteMany({ where: { userId: targetId } });
@@ -158,7 +157,7 @@ export class UsersService {
 
     await prisma.user.update({
       where: { id: targetId },
-      data: { status: 'ACTIVE' },
+      data: { status: 'ACTIVE' as UserStatus },
     });
 
     await eventBus.emit('users.unbanned', {
@@ -177,7 +176,7 @@ export class UsersService {
 
     await prisma.user.update({
       where: { id: targetId },
-      data: { status: 'SUSPENDED' },
+      data: { status: 'SUSPENDED' as UserStatus },
     });
 
     await eventBus.emit('users.suspended', {
@@ -212,7 +211,7 @@ export class UsersService {
   async setStatus(userId: string, status: string) {
     await prisma.user.update({
       where: { id: userId },
-      data: { status },
+      data: { status: status as UserStatus },
     });
     await eventBus.emit('users.status_changed', {
       type: 'users.status_changed',
@@ -236,9 +235,9 @@ export class UsersService {
   async getStats() {
     const [total, active, banned, suspended, verified] = await Promise.all([
       prisma.user.count(),
-      prisma.user.count({ where: { status: 'ACTIVE' } }),
-      prisma.user.count({ where: { status: 'BANNED' } }),
-      prisma.user.count({ where: { status: 'SUSPENDED' } }),
+      prisma.user.count({ where: { status: 'ACTIVE' as UserStatus } }),
+      prisma.user.count({ where: { status: 'BANNED' as UserStatus } }),
+      prisma.user.count({ where: { status: 'SUSPENDED' as UserStatus } }),
       prisma.user.count({ where: { emailVerified: true } }),
     ]);
     return { total, active, banned, suspended, verified };
@@ -247,7 +246,7 @@ export class UsersService {
   async getOnlineUsers() {
     const recentThreshold = new Date(Date.now() - 15 * 60 * 1000);
     return prisma.user.findMany({
-      where: { lastLoginAt: { gte: recentThreshold }, status: 'ACTIVE' },
+      where: { lastLoginAt: { gte: recentThreshold }, status: 'ACTIVE' as UserStatus },
       select: { id: true, username: true, displayName: true, avatar: true, lastLoginAt: true },
       orderBy: { lastLoginAt: 'desc' },
     });
@@ -293,7 +292,7 @@ export class UsersService {
         displayName: 'Deleted User',
         avatar: null,
         bio: null,
-        status: 'DELETED',
+        status: 'DELETED' as UserStatus,
         passwordHash: null,
         twoFactorEnabled: false,
         twoFactorSecret: null,

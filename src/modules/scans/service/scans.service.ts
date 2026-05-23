@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { Prisma } from '@prisma/client';
 import { prisma } from '../../../core/database';
 import { eventBus } from '../../../core/events';
@@ -13,7 +12,7 @@ const log = new ModuleLogger('ScansService');
 export class ScansService {
   async findAll(params: PaginationParams) {
     const [data, total] = await Promise.all([
-      prisma.contentScan.findMany({ skip: (params.page - 1) * params.limit, take: params.limit, orderBy: { createdAt: 'desc' } }),
+      prisma.contentScan.findMany({ skip: (params.page - 1) * params.limit, take: params.limit, orderBy: { scannedAt: 'desc' } }),
       prisma.contentScan.count(),
     ]);
     return buildPaginatedResponse(data, total, params);
@@ -26,7 +25,7 @@ export class ScansService {
   }
 
   async create(data: Record<string, unknown>, userId: string) {
-    const item = await prisma.contentScan.create({ data: data as Prisma.ContentScanCreateInput });
+    const item = await prisma.contentScan.create({ data: data as any });
     await eventBus.emit('scans.created', { type: 'scans.created', source: 'scans-service', data: { id: item.id }, userId });
     await createAuditEntry(userId, 'SCANS_CREATED', 'scans', item.id);
     log.info('Scans created', { id: item.id });

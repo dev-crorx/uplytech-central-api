@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { Prisma } from '@prisma/client';
 import { prisma } from '../../../core/database';
 import { eventBus } from '../../../core/events';
@@ -18,7 +17,7 @@ export class HostingService {
     if (filters?.userId) where.userId = filters.userId;
     const [data, total] = await Promise.all([
       prisma.hostingInstance.findMany({ where, skip: (params.page - 1) * params.limit, take: params.limit, orderBy: { createdAt: 'desc' },
-        include: { user: { select: { id: true, username: true, displayName: true } } } }),
+         }),
       prisma.hostingInstance.count({ where }),
     ]);
     return buildPaginatedResponse(data, total, params);
@@ -26,15 +25,15 @@ export class HostingService {
 
   async findById(id: string) {
     const instance = await prisma.hostingInstance.findUnique({ where: { id },
-      include: { user: { select: { id: true, username: true, displayName: true } } } });
+       });
     if (!instance) throw new NotFoundError('Hosting instance');
     return instance;
   }
 
   async provision(data: { name: string; type: string; plan: string; region?: string; config?: object }, userId: string) {
     const instance = await prisma.hostingInstance.create({
-      data: { name: data.name, type: data.type, plan: data.plan, region: data.region || 'eu-central-1',
-        config: data.config || null, userId, status: 'PROVISIONING', containerId: 'container-' + Date.now() },
+      data: { name: data.name, type: data.type, provider: 'docker', plan: data.plan, region: data.region || 'eu-central-1',
+        config: data.config || undefined, userId, status: 'provisioning', containerId: 'container-' + Date.now() },
     });
     await eventBus.emit('hosting.provisioned', { type: 'hosting.provisioned', source: 'hosting-service', data: { id: instance.id, type: data.type }, userId });
     await createAuditEntry(userId, 'INSTANCE_PROVISIONED', 'hosting', instance.id, { type: data.type, plan: data.plan } as object);
@@ -95,7 +94,7 @@ export class HostingService {
   async updateConfig(id: string, config: object, userId: string) {
     const instance = await prisma.hostingInstance.findUnique({ where: { id } });
     if (!instance) throw new NotFoundError('Hosting instance');
-    await prisma.hostingInstance.update({ where: { id }, data: { config: config as object } });
+    await prisma.hostingInstance.update({ where: { id }, data: { config: config as Prisma.InputJsonValue } });
     await createAuditEntry(userId, 'INSTANCE_CONFIG_UPDATED', 'hosting', id);
   }
 
