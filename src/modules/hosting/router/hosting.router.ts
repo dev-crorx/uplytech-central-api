@@ -1,0 +1,17 @@
+import { Router } from 'express';
+import { hostingController } from '../controller/hosting.controller';
+import { authenticate } from '../../../core/middleware/auth';
+import { auditLog } from '../../../core/middleware/audit';
+const router = Router();
+router.get('/', authenticate as never, (req, res, next) => hostingController.findAll(req, res, next));
+router.get('/my', authenticate as never, (req, res, next) => hostingController.getMyInstances(req, res, next));
+router.post('/', authenticate as never, auditLog('PROVISION', 'hosting') as never, (req, res, next) => hostingController.provision(req, res, next));
+router.get('/:id', authenticate as never, (req, res, next) => hostingController.findById(req, res, next));
+router.delete('/:id', authenticate as never, auditLog('DELETE', 'hosting') as never, (req, res, next) => hostingController.delete(req, res, next));
+router.post('/:id/start', authenticate as never, auditLog('START', 'hosting') as never, (req, res, next) => hostingController.start(req, res, next));
+router.post('/:id/stop', authenticate as never, auditLog('STOP', 'hosting') as never, (req, res, next) => hostingController.stop(req, res, next));
+router.post('/:id/restart', authenticate as never, auditLog('RESTART', 'hosting') as never, (req, res, next) => hostingController.restart(req, res, next));
+router.get('/:id/logs', authenticate as never, (req, res, next) => hostingController.getLogs(req, res, next));
+router.get('/:id/metrics', authenticate as never, (req, res, next) => hostingController.getMetrics(req, res, next));
+router.put('/:id/config', authenticate as never, auditLog('UPDATE_CONFIG', 'hosting') as never, (req, res, next) => hostingController.updateConfig(req, res, next));
+export { router as hostingRouter };

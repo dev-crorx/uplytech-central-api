@@ -1,0 +1,11 @@
+import { Router } from 'express';
+import { metricsController } from '../controller/metrics.controller';
+import { authenticate } from '../../../core/middleware/auth';
+const router = Router();
+router.get('/', authenticate as never, (req, res, next) => metricsController.getMetrics(req, res, next));
+router.get('/names', authenticate as never, (req, res, next) => metricsController.getNames(req, res, next));
+router.get('/aggregated', authenticate as never, (req, res, next) => metricsController.getAggregated(req, res, next));
+router.get('/system', authenticate as never, (req, res, next) => metricsController.getSystemMetrics(req, res, next));
+router.post('/', authenticate as never, (req, res, next) => metricsController.record(req, res, next));
+router.post('/batch', authenticate as never, (req, res, next) => metricsController.recordBatch(req, res, next));
+export { router as metricsRouter };

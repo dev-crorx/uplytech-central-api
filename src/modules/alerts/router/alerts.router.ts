@@ -1,0 +1,12 @@
+import { Router } from 'express';
+import { alertsController } from '../controller/alerts.controller';
+import { authenticate } from '../../../core/middleware/auth';
+import { auditLog } from '../../../core/middleware/audit';
+const router = Router();
+router.get('/', authenticate as never, (req, res, next) => alertsController.findAll(req, res, next));
+router.get('/active-count', authenticate as never, (req, res, next) => alertsController.getActiveCount(req, res, next));
+router.post('/', authenticate as never, auditLog('CREATE_ALERT', 'alert') as never, (req, res, next) => alertsController.create(req, res, next));
+router.post('/:id/acknowledge', authenticate as never, auditLog('ACKNOWLEDGE', 'alert') as never, (req, res, next) => alertsController.acknowledge(req, res, next));
+router.post('/:id/resolve', authenticate as never, auditLog('RESOLVE', 'alert') as never, (req, res, next) => alertsController.resolve(req, res, next));
+router.post('/:id/dismiss', authenticate as never, auditLog('DISMISS', 'alert') as never, (req, res, next) => alertsController.dismiss(req, res, next));
+export { router as alertsRouter };

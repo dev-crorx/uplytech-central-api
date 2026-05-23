@@ -1,0 +1,14 @@
+import { Router } from 'express';
+import { gamesController } from '../controller/games.controller';
+import { authenticate } from '../../../core/middleware/auth';
+import { auditLog } from '../../../core/middleware/audit';
+const router = Router();
+router.get('/', authenticate as never, (req, res, next) => gamesController.findAll(req, res, next));
+router.post('/', authenticate as never, auditLog('CREATE_GAME', 'game') as never, (req, res, next) => gamesController.create(req, res, next));
+router.get('/:id', authenticate as never, (req, res, next) => gamesController.findById(req, res, next));
+router.put('/:id', authenticate as never, auditLog('UPDATE_GAME', 'game') as never, (req, res, next) => gamesController.update(req, res, next));
+router.delete('/:id', authenticate as never, auditLog('DELETE_GAME', 'game') as never, (req, res, next) => gamesController.delete(req, res, next));
+router.post('/:id/stats', authenticate as never, (req, res, next) => gamesController.updateStats(req, res, next));
+router.get('/:id/leaderboard', authenticate as never, (req, res, next) => gamesController.getLeaderboard(req, res, next));
+router.post('/:id/matchmake', authenticate as never, (req, res, next) => gamesController.matchmake(req, res, next));
+export { router as gamesRouter };

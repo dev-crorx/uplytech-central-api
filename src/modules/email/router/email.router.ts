@@ -1,0 +1,18 @@
+import { Router } from 'express';
+import { emailController } from '../controller/email.controller';
+import { authenticate } from '../../../core/middleware/auth';
+import { auditLog } from '../../../core/middleware/audit';
+const router = Router();
+router.get('/inbox', authenticate as never, (req, res, next) => emailController.getInbox(req, res, next));
+router.get('/sent', authenticate as never, (req, res, next) => emailController.getSent(req, res, next));
+router.get('/unread-count', authenticate as never, (req, res, next) => emailController.getUnreadCount(req, res, next));
+router.get('/search', authenticate as never, (req, res, next) => emailController.search(req, res, next));
+router.get('/templates', authenticate as never, (req, res, next) => emailController.getTemplates(req, res, next));
+router.post('/templates', authenticate as never, auditLog('CREATE_TEMPLATE', 'email') as never, (req, res, next) => emailController.createTemplate(req, res, next));
+router.post('/send', authenticate as never, auditLog('SEND_EMAIL', 'email') as never, (req, res, next) => emailController.send(req, res, next));
+router.post('/send-external', authenticate as never, auditLog('SEND_EXTERNAL', 'email') as never, (req, res, next) => emailController.sendExternal(req, res, next));
+router.get('/:id', authenticate as never, (req, res, next) => emailController.findById(req, res, next));
+router.delete('/:id', authenticate as never, (req, res, next) => emailController.delete(req, res, next));
+router.post('/:id/read', authenticate as never, (req, res, next) => emailController.markAsRead(req, res, next));
+router.post('/:id/unread', authenticate as never, (req, res, next) => emailController.markAsUnread(req, res, next));
+export { router as emailRouter };

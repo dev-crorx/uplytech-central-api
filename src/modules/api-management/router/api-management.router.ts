@@ -1,0 +1,11 @@
+import { Router } from 'express';
+import { apiManagementController } from '../controller/api-management.controller';
+import { authenticate } from '../../../core/middleware/auth';
+import { auditLog } from '../../../core/middleware/audit';
+const router = Router();
+router.get('/', authenticate as never, (req, res, next) => apiManagementController.findAll(req, res, next));
+router.post('/', authenticate as never, auditLog('CREATE', 'api-management') as never, (req, res, next) => apiManagementController.create(req, res, next));
+router.get('/:id', authenticate as never, (req, res, next) => apiManagementController.findById(req, res, next));
+router.put('/:id', authenticate as never, auditLog('UPDATE', 'api-management') as never, (req, res, next) => apiManagementController.update(req, res, next));
+router.delete('/:id', authenticate as never, auditLog('DELETE', 'api-management') as never, (req, res, next) => apiManagementController.delete(req, res, next));
+export { router as apiManagementRouter };

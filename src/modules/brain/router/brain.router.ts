@@ -1,0 +1,17 @@
+import { Router } from 'express';
+import { brainController } from '../controller/brain.controller';
+import { authenticate } from '../../../core/middleware/auth';
+import { auditLog } from '../../../core/middleware/audit';
+const router = Router();
+router.post('/chat', authenticate as never, (req, res, next) => brainController.chat(req, res, next));
+router.get('/conversations', authenticate as never, (req, res, next) => brainController.getConversations(req, res, next));
+router.get('/conversations/:id', authenticate as never, (req, res, next) => brainController.getConversation(req, res, next));
+router.delete('/conversations/:id', authenticate as never, (req, res, next) => brainController.deleteConversation(req, res, next));
+router.get('/knowledge', authenticate as never, (req, res, next) => brainController.getKnowledge(req, res, next));
+router.post('/train', authenticate as never, auditLog('TRAIN', 'brain') as never, (req, res, next) => brainController.train(req, res, next));
+router.post('/train/batch', authenticate as never, auditLog('TRAIN_BATCH', 'brain') as never, (req, res, next) => brainController.trainBatch(req, res, next));
+router.delete('/knowledge/:id', authenticate as never, auditLog('DELETE_KNOWLEDGE', 'brain') as never, (req, res, next) => brainController.deleteKnowledge(req, res, next));
+router.get('/personality', authenticate as never, (req, res, next) => brainController.getPersonality(req, res, next));
+router.put('/personality', authenticate as never, auditLog('UPDATE_PERSONALITY', 'brain') as never, (req, res, next) => brainController.updatePersonality(req, res, next));
+router.get('/stats', authenticate as never, (req, res, next) => brainController.getStats(req, res, next));
+export { router as brainRouter };

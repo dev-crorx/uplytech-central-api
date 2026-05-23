@@ -1,0 +1,15 @@
+import { Router } from 'express';
+import { tournamentsController } from '../controller/tournaments.controller';
+import { authenticate } from '../../../core/middleware/auth';
+import { auditLog } from '../../../core/middleware/audit';
+const router = Router();
+router.get('/', authenticate as never, (req, res, next) => tournamentsController.findAll(req, res, next));
+router.post('/', authenticate as never, auditLog('CREATE_TOURNAMENT', 'tournament') as never, (req, res, next) => tournamentsController.create(req, res, next));
+router.get('/:id', authenticate as never, (req, res, next) => tournamentsController.findById(req, res, next));
+router.get('/:id/bracket', authenticate as never, (req, res, next) => tournamentsController.getBracket(req, res, next));
+router.post('/:id/register', authenticate as never, auditLog('REGISTER', 'tournament') as never, (req, res, next) => tournamentsController.register(req, res, next));
+router.post('/:id/unregister', authenticate as never, (req, res, next) => tournamentsController.unregister(req, res, next));
+router.post('/:id/start', authenticate as never, auditLog('START_TOURNAMENT', 'tournament') as never, (req, res, next) => tournamentsController.start(req, res, next));
+router.post('/:id/end', authenticate as never, auditLog('END_TOURNAMENT', 'tournament') as never, (req, res, next) => tournamentsController.end(req, res, next));
+router.post('/matches/:matchId/result', authenticate as never, auditLog('REPORT_RESULT', 'tournament') as never, (req, res, next) => tournamentsController.reportResult(req, res, next));
+export { router as tournamentsRouter };

@@ -1,0 +1,11 @@
+import { Router } from 'express';
+import { areasController } from '../controller/areas.controller';
+import { authenticate } from '../../../core/middleware/auth';
+import { auditLog } from '../../../core/middleware/audit';
+const router = Router();
+router.get('/', authenticate as never, (req, res, next) => areasController.findAll(req, res, next));
+router.post('/', authenticate as never, auditLog('CREATE', 'areas') as never, (req, res, next) => areasController.create(req, res, next));
+router.get('/:id', authenticate as never, (req, res, next) => areasController.findById(req, res, next));
+router.put('/:id', authenticate as never, auditLog('UPDATE', 'areas') as never, (req, res, next) => areasController.update(req, res, next));
+router.delete('/:id', authenticate as never, auditLog('DELETE', 'areas') as never, (req, res, next) => areasController.delete(req, res, next));
+export { router as areasRouter };

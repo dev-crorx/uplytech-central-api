@@ -1,0 +1,12 @@
+import { Router } from 'express';
+import { logsController } from '../controller/logs.controller';
+import { authenticate } from '../../../core/middleware/auth';
+import { auditLog } from '../../../core/middleware/audit';
+const router = Router();
+router.get('/', authenticate as never, (req, res, next) => logsController.getLogs(req, res, next));
+router.get('/levels', authenticate as never, (req, res, next) => logsController.getLevels(req, res, next));
+router.get('/sources', authenticate as never, (req, res, next) => logsController.getSources(req, res, next));
+router.get('/error-rate', authenticate as never, (req, res, next) => logsController.getErrorRate(req, res, next));
+router.post('/', authenticate as never, (req, res, next) => logsController.create(req, res, next));
+router.post('/purge', authenticate as never, auditLog('PURGE_LOGS', 'logs') as never, (req, res, next) => logsController.purge(req, res, next));
+export { router as logsRouter };

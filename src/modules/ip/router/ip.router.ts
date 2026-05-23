@@ -1,0 +1,11 @@
+import { Router } from 'express';
+import { ipController } from '../controller/ip.controller';
+import { authenticate } from '../../../core/middleware/auth';
+import { auditLog } from '../../../core/middleware/audit';
+const router = Router();
+router.get('/', authenticate as never, (req, res, next) => ipController.findAll(req, res, next));
+router.post('/', authenticate as never, auditLog('CREATE', 'ip') as never, (req, res, next) => ipController.create(req, res, next));
+router.get('/:id', authenticate as never, (req, res, next) => ipController.findById(req, res, next));
+router.put('/:id', authenticate as never, auditLog('UPDATE', 'ip') as never, (req, res, next) => ipController.update(req, res, next));
+router.delete('/:id', authenticate as never, auditLog('DELETE', 'ip') as never, (req, res, next) => ipController.delete(req, res, next));
+export { router as ipRouter };

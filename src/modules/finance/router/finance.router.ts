@@ -1,0 +1,11 @@
+import { Router } from 'express';
+import { financeController } from '../controller/finance.controller';
+import { authenticate } from '../../../core/middleware/auth';
+import { auditLog } from '../../../core/middleware/audit';
+const router = Router();
+router.get('/', authenticate as never, (req, res, next) => financeController.findAll(req, res, next));
+router.post('/', authenticate as never, auditLog('CREATE', 'finance') as never, (req, res, next) => financeController.create(req, res, next));
+router.get('/:id', authenticate as never, (req, res, next) => financeController.findById(req, res, next));
+router.put('/:id', authenticate as never, auditLog('UPDATE', 'finance') as never, (req, res, next) => financeController.update(req, res, next));
+router.delete('/:id', authenticate as never, auditLog('DELETE', 'finance') as never, (req, res, next) => financeController.delete(req, res, next));
+export { router as financeRouter };

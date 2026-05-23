@@ -1,0 +1,11 @@
+import { Router } from 'express';
+import { analyticsController } from '../controller/analytics.controller';
+import { authenticate } from '../../../core/middleware/auth';
+const router = Router();
+router.post('/track', (req, res, next) => analyticsController.trackEvent(req, res, next));
+router.get('/events', authenticate as never, (req, res, next) => analyticsController.getEvents(req, res, next));
+router.get('/counts', authenticate as never, (req, res, next) => analyticsController.getEventCounts(req, res, next));
+router.get('/unique-users', authenticate as never, (req, res, next) => analyticsController.getUniqueUsers(req, res, next));
+router.get('/top-events', authenticate as never, (req, res, next) => analyticsController.getTopEvents(req, res, next));
+router.get('/dashboard', authenticate as never, (req, res, next) => analyticsController.getDashboard(req, res, next));
+export { router as analyticsRouter };

@@ -1,0 +1,14 @@
+import { Router } from 'express';
+import { devicesController } from '../controller/devices.controller';
+import { authenticate } from '../../../core/middleware/auth';
+import { auditLog } from '../../../core/middleware/audit';
+const router = Router();
+router.get('/', authenticate as never, (req, res, next) => devicesController.findAll(req, res, next));
+router.get('/my', authenticate as never, (req, res, next) => devicesController.getMyDevices(req, res, next));
+router.post('/register', authenticate as never, auditLog('REGISTER', 'device') as never, (req, res, next) => devicesController.register(req, res, next));
+router.get('/:id', authenticate as never, (req, res, next) => devicesController.findById(req, res, next));
+router.put('/:id', authenticate as never, auditLog('UPDATE', 'device') as never, (req, res, next) => devicesController.update(req, res, next));
+router.delete('/:id', authenticate as never, auditLog('DEREGISTER', 'device') as never, (req, res, next) => devicesController.deregister(req, res, next));
+router.post('/:id/heartbeat', authenticate as never, (req, res, next) => devicesController.heartbeat(req, res, next));
+router.put('/:id/status', authenticate as never, auditLog('STATUS', 'device') as never, (req, res, next) => devicesController.setStatus(req, res, next));
+export { router as devicesRouter };

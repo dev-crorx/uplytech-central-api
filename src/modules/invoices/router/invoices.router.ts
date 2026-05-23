@@ -1,0 +1,15 @@
+import { Router } from 'express';
+import { invoicesController } from '../controller/invoices.controller';
+import { authenticate } from '../../../core/middleware/auth';
+import { auditLog } from '../../../core/middleware/audit';
+const router = Router();
+router.get('/', authenticate as never, (req, res, next) => invoicesController.findAll(req, res, next));
+router.get('/my', authenticate as never, (req, res, next) => invoicesController.getMyInvoices(req, res, next));
+router.get('/stats', authenticate as never, (req, res, next) => invoicesController.getStats(req, res, next));
+router.post('/', authenticate as never, auditLog('CREATE_INVOICE', 'invoice') as never, (req, res, next) => invoicesController.create(req, res, next));
+router.get('/:id', authenticate as never, (req, res, next) => invoicesController.findById(req, res, next));
+router.post('/:id/paid', authenticate as never, auditLog('MARK_PAID', 'invoice') as never, (req, res, next) => invoicesController.markAsPaid(req, res, next));
+router.post('/:id/overdue', authenticate as never, auditLog('MARK_OVERDUE', 'invoice') as never, (req, res, next) => invoicesController.markAsOverdue(req, res, next));
+router.post('/:id/cancel', authenticate as never, auditLog('CANCEL', 'invoice') as never, (req, res, next) => invoicesController.cancel(req, res, next));
+router.post('/:id/reminder', authenticate as never, (req, res, next) => invoicesController.sendReminder(req, res, next));
+export { router as invoicesRouter };

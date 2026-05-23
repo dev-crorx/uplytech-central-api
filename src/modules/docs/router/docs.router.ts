@@ -1,0 +1,11 @@
+import { Router } from 'express';
+import { docsController } from '../controller/docs.controller';
+import { authenticate } from '../../../core/middleware/auth';
+import { auditLog } from '../../../core/middleware/audit';
+const router = Router();
+router.get('/', authenticate as never, (req, res, next) => docsController.findAll(req, res, next));
+router.post('/', authenticate as never, auditLog('CREATE', 'docs') as never, (req, res, next) => docsController.create(req, res, next));
+router.get('/:id', authenticate as never, (req, res, next) => docsController.findById(req, res, next));
+router.put('/:id', authenticate as never, auditLog('UPDATE', 'docs') as never, (req, res, next) => docsController.update(req, res, next));
+router.delete('/:id', authenticate as never, auditLog('DELETE', 'docs') as never, (req, res, next) => docsController.delete(req, res, next));
+export { router as docsRouter };
